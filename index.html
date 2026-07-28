@@ -170,9 +170,27 @@
     .wrap.live-wide #wSetupCard{grid-column:1;grid-row:2}
     .wrap.live-wide #wFeedCard{grid-column:2;grid-row:1 / span 2}
   }
+  #lockScreen{position:fixed;inset:0;z-index:1000;background:linear-gradient(135deg,#0ea5e9,#22c55e);display:none;align-items:center;justify-content:center;padding:20px}
+  #lockScreen.show{display:flex}
+  .lock-box{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:28px 22px;width:100%;max-width:320px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.4)}
+  .lock-box h2{margin:6px 0 2px;font-size:19px}
+  .lock-box p{margin:0 0 16px;font-size:12.5px;color:var(--muted)}
+  .lock-box input{text-align:center;letter-spacing:8px;font-size:22px;padding:12px}
+  .lock-box button{margin-top:14px;background:var(--accent);color:#062033}
+  .lock-err{color:var(--danger);font-size:12.5px;min-height:16px;margin-top:8px}
 </style>
 </head>
 <body>
+<div id="lockScreen">
+  <div class="lock-box">
+    <div style="font-size:34px">🔒</div>
+    <h2>Pasabuy Live</h2>
+    <p>Enter your PIN to unlock</p>
+    <input id="lockPin" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="••••" onkeydown="if(event.key==='Enter')lockTry()">
+    <div class="lock-err" id="lockErr"></div>
+    <button onclick="lockTry()">Unlock</button>
+  </div>
+</div>
 <header>
   <h1>🛍️ Pasabuy Pricing Calculator</h1>
   <p>Thailand → Philippines · auto-price every item</p>
@@ -182,10 +200,13 @@
   <button class="tab active" id="tabOrders" onclick="showPage('orders')">🧾 Orders</button>
   <button class="tab" id="tabProducts" onclick="showPage('products')">📦 Products</button>
   <button class="tab" id="tabLive" onclick="showPage('live')">📡 Live</button>
+  <button class="tab" id="tabSettings" onclick="showPage('settings')">⚙️ Settings</button>
 </div>
 
 <div class="wrap">
 
+  <!-- SETTINGS & CLOUD SYNC — own tab -->
+  <div id="page-settings" style="display:none">
   <!-- SETTINGS -->
   <div class="card collapsed" id="settingsCard">
     <div class="collapsible-head" onclick="toggleCollapse('settingsCard')">
@@ -279,9 +300,13 @@
         <input type="text" id="sbPaste" placeholder="paste the setup code here">
         <button class="btn-ghost" style="margin-top:8px" onclick="syncPasteSetup()">Apply pasted setup</button>
       </div>
-      <div class="hint" style="margin-top:12px">🔒 Your Facebook token is <b>not</b> synced — it stays on each device. Anyone with your URL, key, and shop code can see this data, so keep them private.</div>
+      <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+        <button class="btn-ghost" onclick="lockDevice()">🔒 Lock this device (require PIN again)</button>
+      </div>
+      <div class="hint" style="margin-top:12px">🔒 Anyone with your URL and PIN can see this data, so keep them private. Config &amp; PIN are stored in your Vercel settings, not in the code.</div>
     </div>
   </div>
+  </div><!-- /page-settings -->
 
   <div id="page-orders">
   <!-- ADD ITEM -->
@@ -445,6 +470,22 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+/* ============================================================
+   CENTRAL SETUP — fill these once and EVERY device that opens
+   this app auto-connects to the same shared data. No per-device
+   Cloud-sync setup needed.
+   ============================================================ */
+const CENTRAL = {
+  url:  '',   // Supabase Project URL, e.g. https://abcd.supabase.co
+  key:  '',   // Supabase publishable (or anon) key
+  shop: '',   // your shop code (any secret word)
+  syncToken: true,  // also share the Facebook token to every device
+  pinHash: ''       // set to lock the app behind a PIN (leave '' for no lock)
+};
+const CENTRAL_ON = !!(CENTRAL.url && CENTRAL.key && CENTRAL.shop);
+const API_CONFIG = true;   // get Supabase config + PIN from Vercel env vars via /api/unlock
+let SYNC_TOKEN = CENTRAL_ON && !!CENTRAL.syncToken;
+
 /* ---------- state ---------- */
 let items = [];
 let editIndex = null;
@@ -604,12 +645,15 @@ function showPage(pg){
   $('page-orders').style.display   = pg==='orders'?'block':'none';
   $('page-products').style.display = pg==='products'?'block':'none';
   $('page-live').style.display     = pg==='live'?'block':'none';
+  $('page-settings').style.display = pg==='settings'?'block':'none';
   $('tabOrders').classList.toggle('active', pg==='orders');
   $('tabProducts').classList.toggle('active', pg==='products');
   $('tabLive').classList.toggle('active', pg==='live');
+  $('tabSettings').classList.toggle('active', pg==='settings');
   const wrap=document.querySelector('.wrap'); if(wrap) wrap.classList.toggle('live-wide', pg==='live');
   if(pg==='orders') render();
   else if(pg==='products') renderProducts();
+  else if(pg==='settings'){ syncFillFields(); methodDesc(); }
   else { wSyncSetup(); wRender(); }
   window.scrollTo({top:0});
 }
@@ -1340,17 +1384,18 @@ function wSyncSetup(){
 let sb=null, sbChan=null, syncRev=0, syncApplying=false, syncSaveTimer=null;
 let sbCfg={url:'',key:'',shop:''};
 try{ const c=JSON.parse(localStorage.getItem('pb_sync')||'null'); if(c&&c.url) sbCfg=c; }catch(e){}
+if(CENTRAL_ON){ sbCfg={url:CENTRAL.url,key:CENTRAL.key,shop:CENTRAL.shop}; }   // baked-in config wins — same on every device
 const SYNC_ID=(function(){ try{ let x=localStorage.getItem('pb_client'); if(!x){ x='c'+Math.random().toString(36).slice(2)+Date.now().toString(36); localStorage.setItem('pb_client',x);} return x; }catch(e){ return 'c'+Math.random().toString(36).slice(2); } })();
 
 function syncStatus(msg){ const el=$('syncStatus'); if(el) el.textContent=msg||''; }
 function syncBadge(on){ const b=$('syncBadge'); if(b) b.textContent=on?'on':'off'; }
 function syncFillFields(){ if($('sbUrl'))$('sbUrl').value=sbCfg.url||''; if($('sbKey'))$('sbKey').value=sbCfg.key||''; if($('sbShop'))$('sbShop').value=sbCfg.shop||''; }
-function cloudData(){ const d=collectData(); if(d.wCfg){ d.wCfg=Object.assign({},d.wCfg); delete d.wCfg.token; } return d; }  // never sync the FB token
+function cloudData(){ const d=collectData(); if(!SYNC_TOKEN && d.wCfg){ d.wCfg=Object.assign({},d.wCfg); delete d.wCfg.token; } return d; }  // share the FB token only when centrally enabled
 function applyRemote(remote){
   syncApplying=true;
   const localToken=(typeof wCfg==='object'&&wCfg)?wCfg.token:'';
   applyData(remote);
-  if(localToken && wCfg) wCfg.token=localToken;   // keep this device's own token
+  if(!SYNC_TOKEN && localToken && wCfg) wCfg.token=localToken;   // keep local token unless centrally shared
   renderTiers(); render(); renderProducts(); if(typeof wSyncSetup==='function') wSyncSetup(); if(typeof wRender==='function') wRender();
   try{ localStorage.setItem(LS_KEY,JSON.stringify(collectData())); }catch(e){}
   syncApplying=false;
@@ -1428,6 +1473,40 @@ function syncPasteSetup(){
   }catch(e){ toast('That setup code is not valid',true); }
 }
 
+/* ---------- config resolution + PIN lock ---------- */
+function startSync(){ if(sbCfg.url&&sbCfg.key&&sbCfg.shop){ syncInit(false); } }
+function setLockErr(m){ if($('lockErr')) $('lockErr').textContent=m||''; }
+function showLock(){ if($('lockScreen')){ $('lockScreen').classList.add('show'); const i=$('lockPin'); if(i) setTimeout(()=>i.focus(),150); } }
+function hideLock(){ if($('lockScreen')) $('lockScreen').classList.remove('show'); }
+async function lockTry(){
+  const v=(($('lockPin')&&$('lockPin').value)||'').trim();
+  if(!v) return;
+  setLockErr('Checking…');
+  try{
+    const r=await fetch('/api/unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:v})});
+    if(r.status===200){
+      const cfg=await r.json();
+      if(!cfg.url||!cfg.key||!cfg.shop){ setLockErr('Server config incomplete — check Vercel env vars'); return; }
+      try{ localStorage.setItem('pb_cfg',JSON.stringify(cfg)); }catch(e){}
+      sbCfg={url:cfg.url,key:cfg.key,shop:cfg.shop}; SYNC_TOKEN=!!cfg.syncToken;
+      hideLock(); startSync();
+    } else if(r.status===401){ setLockErr('Wrong PIN — try again'); if($('lockPin')){ $('lockPin').value=''; $('lockPin').focus(); } }
+    else { setLockErr('Server error ('+r.status+')'); }
+  }catch(e){ setLockErr('Network error — are you online?'); }
+}
+function lockDevice(){ try{ localStorage.removeItem('pb_cfg'); }catch(e){} location.reload(); }
+function boot(){
+  // 1) values baked into the code (optional) win
+  if(CENTRAL_ON){ sbCfg={url:CENTRAL.url,key:CENTRAL.key,shop:CENTRAL.shop}; SYNC_TOKEN=!!CENTRAL.syncToken; startSync(); return; }
+  // 2) this device unlocked before — reuse its remembered config, no PIN
+  let remembered=null; try{ remembered=JSON.parse(localStorage.getItem('pb_cfg')||'null'); }catch(e){}
+  if(remembered&&remembered.url){ sbCfg={url:remembered.url,key:remembered.key,shop:remembered.shop}; SYNC_TOKEN=!!remembered.syncToken; startSync(); return; }
+  // 3) deployed on Vercel — ask for PIN, then fetch config from /api/unlock
+  if(API_CONFIG && location.protocol!=='file:'){ showLock(); return; }
+  // 4) opened as a local file — fall back to manual Cloud-sync entry
+  startSync();
+}
+
 /* init */
 loadAll();
 renderTiers();
@@ -1435,7 +1514,7 @@ render();
 renderProducts();
 wSyncSetup();
 syncFillFields();
-if(sbCfg.url&&sbCfg.key&&sbCfg.shop){ syncInit(false); }
+boot();
 </script>
 <script>
 if('serviceWorker' in navigator){
