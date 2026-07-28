@@ -169,6 +169,12 @@
     .wrap.live-wide #wControlCard{grid-column:1;grid-row:1}
     .wrap.live-wide #wSetupCard{grid-column:1;grid-row:2}
     .wrap.live-wide #wFeedCard{grid-column:2;grid-row:1 / span 2}
+    /* Orders page: form + totals on the left, customer list on the right */
+    .wrap.orders-wide{max-width:1000px}
+    .wrap.orders-wide #page-orders{display:grid !important;grid-template-columns:360px 1fr;gap:0 16px;align-items:start}
+    .wrap.orders-wide #addItemCard{grid-column:1;grid-row:1}
+    .wrap.orders-wide #totalsCard{grid-column:1;grid-row:2}
+    .wrap.orders-wide #orderCard{grid-column:2;grid-row:1 / span 2}
   }
   #lockScreen{position:fixed;inset:0;z-index:1000;background:linear-gradient(135deg,#0ea5e9,#22c55e);display:none;align-items:center;justify-content:center;padding:20px}
   #lockScreen.show{display:flex}
@@ -310,7 +316,7 @@
 
   <div id="page-orders">
   <!-- ADD ITEM -->
-  <div class="card">
+  <div class="card" id="addItemCard">
     <h2>➕ Add an item</h2>
 
     <label>👤 Customer — Facebook link or name</label>
@@ -318,8 +324,9 @@
     <div class="hint">Same link/name = orders group under one customer. Stays filled so you can add several items for the same person.</div>
     <div id="custHint" class="cust-hint"></div>
 
-    <label>Item name</label>
-    <input type="text" id="iName" placeholder="e.g. Charles & Keith bag">
+    <label>Item — search a product, or type a new one</label>
+    <input type="text" id="iName" placeholder="🔍 search product or type a new name" autocomplete="off" oninput="orderSearchUpdate()">
+    <div id="iNameResults" class="w-results"></div>
 
     <div class="row">
       <div>
@@ -382,8 +389,16 @@
           <input type="number" id="pWeight" placeholder="0" step="0.1" inputmode="decimal">
         </div>
       </div>
-      <label>Markup % — optional</label>
-      <input type="number" id="pMarkup" placeholder="leave blank = use your global fee setting" step="1" inputmode="decimal">
+      <div class="row">
+        <div>
+          <label>Markup % — optional</label>
+          <input type="number" id="pMarkup" placeholder="use global" step="1" inputmode="decimal">
+        </div>
+        <div>
+          <label>Max qty — optional</label>
+          <input type="number" id="pMax" placeholder="no limit" step="1" inputmode="numeric">
+        </div>
+      </div>
       <button class="btn-add" id="pAddBtn" onclick="addProduct()">Save product</button>
       <button class="btn-ghost" id="pCancelBtn" style="display:none;margin-top:8px" onclick="cancelProductEdit()">Cancel edit</button>
     </div>
@@ -573,16 +588,20 @@ function addItem(){
   if(cost<=0){ $('iCost').focus(); $('iCost').style.borderColor='var(--danger)'; return; }
   $('iCost').style.borderColor='';
   const editing = editIndex!==null;
+  const existing = products.find(p=>(p.name||'').toLowerCase()===name.toLowerCase());
   const data={name,cost,weight,cust:$('iCust').value.trim(),notes:$('iNotes').value.trim()};
+  if(existing && existing.markup!=null) data.markup=existing.markup;   // carry the product's custom markup
   if(editing){
     items[editIndex]={...items[editIndex],...data};
     stopEdit();
     $('iCust').value='';
   } else {
     items.push({...data,showBd:false,added:nowISO()});
+    if(!existing && cost>0){ products.push({name,cost,weight}); }   // new item → also save it as a product so it syncs
     // keep iCust filled for fast multi-item entry
   }
   $('iName').value=''; $('iCost').value=''; $('iWeight').value=''; $('iNotes').value='';
+  const inr=$('iNameResults'); if(inr) inr.innerHTML='';
   custHintUpdate();
   $('iName').focus();
   render();
@@ -606,7 +625,34 @@ function stopEdit(){
 function cancelEdit(){
   stopEdit();
   $('iName').value=''; $('iCost').value=''; $('iWeight').value=''; $('iCust').value=''; $('iNotes').value='';
+  const inr=$('iNameResults'); if(inr) inr.innerHTML='';
   custHintUpdate();
+}
+/* Orders "Add item" — search products like the Live picker */
+function orderPick(idx){
+  const p=products[idx]; if(!p) return;
+  $('iName').value=p.name; $('iCost').value=(p.cost!=null?p.cost:''); $('iWeight').value=(p.weight!=null?p.weight:'');
+  const box=$('iNameResults'); if(box) box.innerHTML='';
+  methodDesc(); $('iCost').focus();
+}
+function orderSearchUpdate(){
+  const box=$('iNameResults'); if(!box) return;
+  const q=($('iName')?$('iName').value:'').trim(); const ql=q.toLowerCase();
+  if(!q){ box.innerHTML=''; return; }
+  const matches=products.filter(p=>(p.name||'').toLowerCase().includes(ql)).slice(0,5);
+  let html='';
+  matches.forEach(p=>{
+    const idx=products.indexOf(p);
+    const pr=priceItem({cost:p.cost,weight:p.weight,markup:p.markup});
+    const rem=remainOf(p);
+    const right = rem==null ? 'tap to use' : (rem<=0?'<b style="color:var(--danger)">SOLD OUT</b>':'<b style="color:var(--php)">'+rem+' left</b>');
+    html+=`<div class="w-res" onclick="orderPick(${idx})"><div><div class="nm">${escapeHtml(p.name)}</div><div class="mt"><span class="php">${fmtP(pr.php)}</span> · ฿${(p.cost||0).toLocaleString()}${p.markup!=null?' · '+p.markup+'%':''}</div></div><div class="mt">${right}</div></div>`;
+  });
+  const exact=products.some(p=>(p.name||'').toLowerCase()===ql);
+  if(!exact){
+    html+=`<div class="w-addnew"><div style="font-size:12.5px">➕ “${escapeHtml(q)}” is new — fill Cost &amp; Weight below and it'll be saved to your Products when you tap <b>Add to order</b>.</div></div>`;
+  }
+  box.innerHTML=html;
 }
 function delItem(i){
   if(editIndex===i) cancelEdit();
@@ -650,7 +696,8 @@ function showPage(pg){
   $('tabProducts').classList.toggle('active', pg==='products');
   $('tabLive').classList.toggle('active', pg==='live');
   $('tabSettings').classList.toggle('active', pg==='settings');
-  const wrap=document.querySelector('.wrap'); if(wrap) wrap.classList.toggle('live-wide', pg==='live');
+  const wrap=document.querySelector('.wrap');
+  if(wrap){ wrap.classList.toggle('live-wide', pg==='live'); wrap.classList.toggle('orders-wide', pg==='orders'); }
   if(pg==='orders') render();
   else if(pg==='products') renderProducts();
   else if(pg==='settings'){ syncFillFields(); methodDesc(); }
@@ -666,11 +713,13 @@ function addProduct(){
   if(cost<=0){ $('pCost').focus(); $('pCost').style.borderColor='var(--danger)'; return; }
   $('pCost').style.borderColor='';
   const mkRaw=$('pMarkup')?$('pMarkup').value:'';
+  const mxRaw=$('pMax')?$('pMax').value:'';
   const prod={name,cost,weight};
   if(mkRaw!=='' && mkRaw!=null) prod.markup=parseFloat(mkRaw)||0;
+  if(mxRaw!=='' && mxRaw!=null) prod.max=parseInt(mxRaw,10)||0;
   if(pEditIndex!==null){ products[pEditIndex]=prod; stopProductEdit(); }
   else products.push(prod);
-  $('pName').value=''; $('pCost').value=''; $('pWeight').value=''; if($('pMarkup'))$('pMarkup').value='';
+  $('pName').value=''; $('pCost').value=''; $('pWeight').value=''; if($('pMarkup'))$('pMarkup').value=''; if($('pMax'))$('pMax').value='';
   saveAll(false); renderProducts();
   toast('✓ Product saved');
 }
@@ -678,11 +727,12 @@ function editProduct(i){
   const pr=products[i];
   $('pName').value=pr.name; $('pCost').value=pr.cost; $('pWeight').value=pr.weight||'';
   if($('pMarkup')) $('pMarkup').value=(pr.markup!=null?pr.markup:'');
+  if($('pMax')) $('pMax').value=(pr.max!=null?pr.max:'');
   pEditIndex=i; $('pAddBtn').textContent='💾 Update product'; $('pCancelBtn').style.display='block';
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function stopProductEdit(){ pEditIndex=null; $('pAddBtn').textContent='Save product'; $('pCancelBtn').style.display='none'; }
-function cancelProductEdit(){ stopProductEdit(); $('pName').value=''; $('pCost').value=''; $('pWeight').value=''; if($('pMarkup'))$('pMarkup').value=''; }
+function cancelProductEdit(){ stopProductEdit(); $('pName').value=''; $('pCost').value=''; $('pWeight').value=''; if($('pMarkup'))$('pMarkup').value=''; if($('pMax'))$('pMax').value=''; }
 function delProduct(i){ if(pEditIndex===i) cancelProductEdit(); products.splice(i,1); saveAll(false); renderProducts(); toast('🗑️ Product removed'); }
 function orderProduct(i){
   const pr=products[i];
@@ -717,7 +767,7 @@ function renderProducts(){
     card.className='cust-group prod-card collapsed';
     card.innerHTML=
       `<div class="cust-head prod-head" onclick="this.parentNode.classList.toggle('collapsed')">
-         <div class="cust-name">📦 ${escapeHtml(pr.name)}<span class="cust-count">฿${pr.cost.toLocaleString()} · ${pr.weight||0}kg${pr.markup!=null?' · '+pr.markup+'% markup':''}</span>
+         <div class="cust-name">📦 ${escapeHtml(pr.name)}<span class="cust-count">฿${pr.cost.toLocaleString()} · ${pr.weight||0}kg${pr.markup!=null?' · '+pr.markup+'% markup':''}${pr.max!=null&&pr.max!==''?' · max '+pr.max+' ('+(remainOf(pr))+' left)':''}</span>
            <span class="prod-sub">🧑‍🤝‍🧑 ${orders.length} ordered${orders.length?` · ${fmtP(pTotalPhp)}`:''}</span>
          </div>
          <div style="display:flex;align-items:center;gap:8px;flex:none">
@@ -1185,12 +1235,14 @@ function wAddOrder(rec, silent){
   if(!prod){ toast('Pick a "Now showing" product first',true); return; }
   if(wDemoMode){ rec.addedToOrder=true; wAdded[rec.id]=true; wRender(); toast('(Demo) would add to '+rec.name.split(' ')[0]+"'s order"); return; }
   const q=Math.max(1, rec.order.qty||1);
+  const rem=remainOf(prod);   // remaining before adding (null = no limit)
   for(let k=0;k<q;k++){
     items.push({name:prod.name, cost:prod.cost, weight:prod.weight, markup:prod.markup, cust:rec.name, notes:'FB: '+rec.text, fromFB:true, showBd:false, added:nowISO()});
   }
   wAdded[rec.id]=true; rec.addedToOrder=true;
   saveAll(false); render(); wRender();
-  if(!silent) toast('✓ Added to '+rec.name.split(' ')[0]+"'s order"+(q>1?(' ×'+q):''));
+  if(rem!=null && q>rem){ toast('⚠ Over max for '+prod.name+' ('+prod.max+') — added, check stock', true); }
+  else if(!silent) toast('✓ Added to '+rec.name.split(' ')[0]+"'s order"+(q>1?(' ×'+q):''));
 }
 function wAddOrderId(id){ const r=wComments.find(c=>c.id===id); if(r) wAddOrder(r,false); }
 function wReplyId(id){ const r=wComments.find(c=>c.id===id); if(!r) return;
@@ -1205,8 +1257,10 @@ function wCurrentText(){
   const el=$('wNowCurrent'); if(!el) return;
   const ap=wActiveProd();
   const price = ap ? (' — <span style="color:var(--php);font-weight:700">'+fmtP(priceItem({cost:ap.cost,weight:ap.weight,markup:ap.markup}).php)+'</span>') : '';
+  let stock='';
+  if(ap){ const r=remainOf(ap); if(r!=null) stock = r<=0 ? ' · <b style="color:var(--danger)">SOLD OUT</b>' : ' · <b style="color:var(--php)">'+r+' left</b>'; }
   el.innerHTML = wActive
-    ? `▶ Now showing: <b>${escapeHtml(wActive)}</b>${price} · <span class="link" onclick="wClearNow()">clear</span>`
+    ? `▶ Now showing: <b>${escapeHtml(wActive)}</b>${price}${stock} · <span class="link" onclick="wClearNow()">clear</span>`
     : 'No product selected — search or add one below.';
 }
 let wRecent=[]; try{ wRecent=JSON.parse(localStorage.getItem('pb_recent')||'[]')||[]; }catch(e){}
@@ -1218,6 +1272,8 @@ function wPick(name){
   wSearchUpdate(); wCurrentText(); toast('Now showing: '+name);
 }
 function wClearNow(){ wActive=''; saveAll(false); wSearchUpdate(); wCurrentText(); toast('Showing: none'); }
+function soldOf(name){ let n=0; for(const it of items){ if(it && it.name===name) n++; } return n; }
+function remainOf(p){ if(!p || p.max==null || p.max==='') return null; return Math.max(0, (parseInt(p.max,10)||0) - soldOf(p.name)); }
 function wSearchUpdate(){
   const box=$('wSearchResults'); if(!box) return;
   const q=($('wSearch')?$('wSearch').value:'').trim();
@@ -1238,10 +1294,13 @@ function wSearchUpdate(){
     const idx=products.indexOf(p);
     const pr=priceItem({cost:p.cost,weight:p.weight,markup:p.markup});
     const sel = p.name===wActive ? ' sel':'';
+    const rem = remainOf(p);
+    const right = rem==null ? (p.name===wActive?'showing':'tap to show')
+      : (rem<=0 ? '<b style="color:var(--danger)">SOLD OUT</b>' : '<b style="color:var(--php)">'+rem+' left</b>');
     html += `<div class="w-res${sel}" onclick="wPickIdx(${idx})">
       <div><div class="nm">${escapeHtml(p.name)}${p.name===wActive?' ▶':''}</div>
-      <div class="mt"><span class="php">${fmtP(pr.php)}</span> · ฿${(p.cost||0).toLocaleString()}${p.markup!=null?' · '+p.markup+'%':''}</div></div>
-      <div class="mt">${p.name===wActive?'showing':'tap to show'}</div></div>`;
+      <div class="mt"><span class="php">${fmtP(pr.php)}</span> · ฿${(p.cost||0).toLocaleString()}${p.markup!=null?' · '+p.markup+'%':''}${p.max!=null&&p.max!==''?' · max '+p.max:''}</div></div>
+      <div class="mt">${right}</div></div>`;
   });
   const exact = products.some(p=>(p.name||'').toLowerCase()===ql);
   if(q && !exact){
@@ -1251,9 +1310,10 @@ function wSearchUpdate(){
         <input id="wNewCost" type="number" inputmode="decimal" placeholder="Cost ฿">
         <input id="wNewWeight" type="number" inputmode="decimal" placeholder="Weight kg">
         <input id="wNewMarkup" type="number" inputmode="decimal" placeholder="Markup %">
+        <input id="wNewMax" type="number" inputmode="numeric" placeholder="Max qty">
       </div>
       <button class="btn-add" style="margin-top:8px" onclick="wQuickAdd()">Add &amp; show</button>
-      <div class="hint" style="margin-top:6px">Saved to your Products too. Cost is required. Markup % is optional — leave blank to use your global fee setting.</div>
+      <div class="hint" style="margin-top:6px">Saved to your Products too. Cost is required. Markup % and Max qty are optional.</div>
     </div>`;
   }
   if(!html) html='<div class="hint">No products yet — type a name above to add your first one.</div>';
@@ -1266,8 +1326,10 @@ function wQuickAdd(){
   const weight=parseFloat(($('wNewWeight')||{}).value)||0;
   if(cost<=0){ if($('wNewCost'))$('wNewCost').style.borderColor='var(--danger)'; toast('Enter the cost ฿',true); return; }
   const mkRaw=($('wNewMarkup')||{}).value;
+  const mxRaw=($('wNewMax')||{}).value;
   const prod={name:q, cost, weight};
   if(mkRaw!=='' && mkRaw!=null) prod.markup=parseFloat(mkRaw)||0;
+  if(mxRaw!=='' && mxRaw!=null) prod.max=parseInt(mxRaw,10)||0;
   products.push(prod);
   wActive=q; wPushRecent(q); saveAll(false); renderProducts();
   if($('wSearch')) $('wSearch').value='';
@@ -1514,6 +1576,7 @@ render();
 renderProducts();
 wSyncSetup();
 syncFillFields();
+(function(){ const w=document.querySelector('.wrap'); if(w) w.classList.add('orders-wide'); })();  // default page is Orders
 boot();
 </script>
 <script>
