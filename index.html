@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Pasabuy Live</title>
+<meta name="theme-color" content="#0ea5e9">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pasabuy Live">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --card2:#273449; --line:#334155;
+    --text:#f1f5f9; --muted:#94a3b8; --accent:#38bdf8; --accent2:#22c55e;
+    --thb:#f59e0b; --php:#22c55e; --danger:#ef4444;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--text);line-height:1.4;padding-bottom:40px;
+  }
+  header{
+    background:linear-gradient(135deg,#0ea5e9,#22c55e);padding:20px 16px;text-align:center;
+    position:sticky;top:0;z-index:20;box-shadow:0 2px 12px rgba(0,0,0,.4)
+  }
+  header h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.3px}
+  header p{margin:4px 0 0;font-size:12.5px;opacity:.92}
+  .wrap{max-width:560px;margin:0 auto;padding:16px}
+  .tabs{display:flex;gap:8px;max-width:560px;margin:0 auto;padding:12px 16px 0}
+  .tab{flex:1;background:var(--card);border:1px solid var(--line);color:var(--muted);font-weight:600;font-size:14px;padding:11px;border-radius:10px}
+  .tab.active{background:var(--accent);color:#062033;border-color:var(--accent)}
+  .prod-order{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:11px;margin-top:10px}
+  .prod-head{cursor:pointer;user-select:none}
+  .prod-head .arrow{color:var(--muted);transition:transform .2s;flex:none}
+  .prod-card.collapsed .prod-head{border-bottom:none;margin-bottom:0;padding-bottom:0}
+  .prod-card.collapsed .prod-head .arrow{transform:rotate(-90deg)}
+  .prod-card.collapsed .prod-body{display:none}
+  .prod-sub{display:block;font-size:11.5px;color:#7dd3fc;font-weight:600;margin-top:4px}
+  .prod-custs{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+  .pc-title{font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:6px}
+  .pc-row{font-size:12.5px;color:#cbd5e1;padding:3px 0;display:flex;justify-content:space-between;gap:10px}
+  .pc-row a{color:var(--accent);text-decoration:none}
+  .pc-note{color:var(--muted);font-style:italic;font-weight:400}
+  .pc-empty{font-size:12px;color:var(--muted)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
+  .card h2{margin:0 0 12px;font-size:15px;display:flex;align-items:center;gap:8px}
+  .card h2 .badge{font-size:11px;font-weight:600;background:var(--card2);color:var(--muted);padding:2px 8px;border-radius:20px}
+  label{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 5px;font-weight:500}
+  input,select{
+    width:100%;padding:11px 12px;background:var(--card2);border:1px solid var(--line);
+    border-radius:10px;color:var(--text);font-size:16px;outline:none;transition:border .15s
+  }
+  input:focus,select:focus{border-color:var(--accent)}
+  .row{display:flex;gap:10px}
+  .row>div{flex:1}
+  .hint{font-size:11px;color:var(--muted);margin-top:4px}
+  button{
+    font-family:inherit;font-size:15px;font-weight:600;border:none;border-radius:10px;
+    padding:12px;cursor:pointer;transition:transform .06s,opacity .15s;width:100%
+  }
+  button:active{transform:scale(.98)}
+  .btn-primary{background:var(--accent);color:#062033}
+  .btn-add{background:linear-gradient(135deg,#0ea5e9,#22c55e);color:#04121f;margin-top:14px}
+  .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+  .collapsible-head{
+    display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none
+  }
+  .collapsible-head .arrow{transition:transform .2s;color:var(--muted)}
+  .collapsed .arrow{transform:rotate(-90deg)}
+  .collapsed .collapsible-body{display:none}
+  .toggle{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line)}
+  .toggle:first-of-type{border-top:none}
+  .toggle span{font-size:13.5px}
+  .switch{position:relative;width:46px;height:26px;flex:none}
+  .switch input{opacity:0;width:0;height:0}
+  .slider{position:absolute;inset:0;background:var(--line);border-radius:26px;transition:.2s;cursor:pointer}
+  .slider:before{content:"";position:absolute;height:20px;width:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+  .switch input:checked+.slider{background:var(--accent2)}
+  .switch input:checked+.slider:before{transform:translateX(20px)}
+  .tier-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .tier-row input{padding:9px 10px;font-size:14px}
+  .tier-row .x{flex:none;width:34px;background:var(--card2);border:1px solid var(--line);color:var(--danger);border-radius:8px;padding:9px 0}
+  /* order items */
+  .empty{text-align:center;color:var(--muted);font-size:13.5px;padding:26px 10px}
+  .item{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:13px;margin-bottom:11px}
+  .item-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .item-name{font-weight:600;font-size:14.5px}
+  .item-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .item-price{text-align:right;flex:none}
+  .item-price .php{color:var(--php);font-weight:700;font-size:16px}
+  .item-price .thb{color:var(--thb);font-size:11.5px}
+  .item-del{background:none;border:none;color:var(--muted);font-size:18px;width:auto;padding:0 2px;margin-top:6px}
+  .breakdown{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);font-size:12px;color:var(--muted);display:none}
+  .breakdown.show{display:block}
+  .breakdown div{display:flex;justify-content:space-between;padding:2px 0}
+  .breakdown .b-total{color:var(--text);font-weight:600;border-top:1px solid var(--line);margin-top:4px;padding-top:5px}
+  .toggle-bd{font-size:11.5px;color:var(--accent);cursor:pointer;margin-top:8px;display:inline-block}
+  .item-note{font-size:11.5px;color:#cbd5e1;margin-top:3px;font-style:italic}
+  /* customer groups */
+  .cust-group{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:14px}
+  .cust-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+  .ord-head{cursor:pointer;user-select:none}
+  .ord-head .arrow{color:var(--muted);transition:transform .2s;flex:none}
+  .cust-group.collapsed .ord-body{display:none}
+  .cust-group.collapsed .cust-head{border-bottom:none;margin-bottom:0;padding-bottom:0}
+  .cust-group.collapsed .ord-head .arrow{transform:rotate(-90deg)}
+  .cust-name{font-size:14px;font-weight:700}
+  .cust-name a{color:var(--accent);text-decoration:none}
+  .cust-count{display:block;font-size:11px;color:var(--muted);font-weight:500;margin-top:2px}
+  .cust-total{text-align:right;flex:none;color:var(--php);font-weight:800;font-size:16px}
+  .cust-total span{display:block;color:var(--thb);font-size:11.5px;font-weight:500}
+  .btn-copy-cust{background:var(--card2);border:1px solid var(--line);color:var(--accent);font-size:13px;padding:9px;margin-top:2px}
+  .item-edit{background:none;border:none;color:var(--muted);font-size:16px;width:auto;padding:0 2px;margin-top:6px}
+  .search-wrap{position:relative;margin-bottom:14px}
+  .search-wrap input{padding-right:40px}
+  .search-wrap .clr{position:absolute;right:6px;top:6px;width:30px;height:30px;padding:0;background:var(--card2);border:1px solid var(--line);color:var(--muted);border-radius:8px;font-size:14px}
+  .cust-hint{font-size:12px;color:#7dd3fc;margin-top:6px;min-height:16px}
+  .link{color:var(--accent);cursor:pointer;text-decoration:underline;font-weight:600}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--accent2);color:#04121f;font-weight:700;font-size:14px;padding:11px 20px;border-radius:24px;box-shadow:0 6px 20px rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:.25s;z-index:50;max-width:90%;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.warn{background:#f59e0b;color:#3b2600}
+  /* totals */
+  .total-card{background:linear-gradient(135deg,#134e4a,#164e63);border:1px solid #0e7490}
+  .total-line{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:14px}
+  .total-line.grand{font-size:20px;font-weight:800;border-top:1px solid rgba(255,255,255,.15);margin-top:6px;padding-top:12px}
+  .total-line.grand .amt{color:#4ade80}
+  .total-line .thb-amt{color:#fcd34d;font-size:13px}
+  .copy-note{font-size:11px;color:var(--muted);text-align:center;margin-top:8px}
+  footer{text-align:center;font-size:11px;color:var(--muted);padding:10px}
+  .method-desc{font-size:11px;color:var(--muted);margin-top:5px;min-height:14px}
+  /* watcher */
+  .wtag{display:inline-block;font-size:11px;padding:3px 8px;border-radius:20px;background:var(--card2);color:var(--muted)}
+  .wtag.g{background:rgba(34,197,94,.16);color:#7ee2a1}
+  .wtag.b{background:rgba(56,189,248,.16);color:#7dd3fc}
+  .wtag.a{background:rgba(245,158,11,.16);color:#f6c667}
+  .w-status{font-size:12.5px;color:var(--muted);margin-bottom:10px}
+  .w-live{color:#fda4a4;font-weight:600}
+  #wFeed .item-note{color:#cbd5e1}
+  .w-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+  .w-actions button{width:auto}
+  .fb-badge{display:inline-block;font-size:10.5px;font-weight:700;color:#fda4a4;background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.35);padding:1px 7px;border-radius:20px;margin-left:6px;vertical-align:middle}
+  .w-now-current{font-size:12.5px;color:#7dd3fc;margin-top:8px;min-height:16px}
+  .w-results{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+  .w-res{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
+  .w-res:active{transform:scale(.99)}
+  .w-res .nm{font-weight:600;font-size:13.5px}
+  .w-res .mt{font-size:11px;color:var(--muted)}
+  .w-res.sel{border-color:var(--accent2);background:rgba(34,197,94,.08)}
+  .w-addnew{background:rgba(34,197,94,.08);border:1px dashed var(--accent2);border-radius:10px;padding:11px 12px;margin-top:2px}
+  .w-addnew .row{display:flex;gap:8px;margin-top:8px}
+  .w-addnew input{font-size:14px;padding:9px 10px}
+  .w-filter{display:flex;gap:8px;margin-bottom:12px;overflow-x:auto}
+  .w-filter button{white-space:nowrap;width:auto;background:var(--card2);color:var(--muted);border:1px solid var(--line);padding:8px 12px;font-size:13px;border-radius:20px}
+  .w-filter button.on{background:rgba(56,189,248,.16);color:#7dd3fc;border-color:var(--accent)}
+  .item.pending{border-color:rgba(245,158,11,.45)}
+  .item.confirmed{border-color:rgba(34,197,94,.45)}
+  .item.dismissed{opacity:.55}
+  .btn-confirm{background:var(--accent2);color:#04121f;width:auto;padding:9px 14px;margin-top:0}
+  .btn-dismiss{background:transparent;border:1px solid var(--line);color:var(--muted);width:auto;padding:9px 12px;margin-top:0}
+  .w-res .php{color:var(--php);font-weight:700;font-size:13px}
+  /* iPad / tablet: two-column Live panel so comments aren't buried under products */
+  @media (min-width:820px){
+    .wrap.live-wide{max-width:1000px}
+    .wrap.live-wide #page-live{display:grid;grid-template-columns:340px 1fr;gap:0 16px;align-items:start}
+    .wrap.live-wide #wControlCard{grid-column:1;grid-row:1}
+    .wrap.live-wide #wSetupCard{grid-column:1;grid-row:2}
+    .wrap.live-wide #wFeedCard{grid-column:2;grid-row:1 / span 2}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛍️ Pasabuy Pricing Calculator</h1>
+  <p>Thailand → Philippines · auto-price every item</p>
+</header>
+
+<div class="tabs">
+  <button class="tab active" id="tabOrders" onclick="showPage('orders')">🧾 Orders</button>
+  <button class="tab" id="tabProducts" onclick="showPage('products')">📦 Products</button>
+  <button class="tab" id="tabLive" onclick="showPage('live')">📡 Live</button>
+</div>
+
+<div class="wrap">
+
+  <!-- SETTINGS -->
+  <div class="card collapsed" id="settingsCard">
+    <div class="collapsible-head" onclick="toggleCollapse('settingsCard')">
+      <h2 style="margin:0">⚙️ Settings <span class="badge">rates & fees</span></h2>
+      <span class="arrow">▾</span>
+    </div>
+    <div class="collapsible-body" style="margin-top:12px">
+
+      <label>Exchange rate — 1 THB = ? PHP</label>
+      <input type="number" id="fx" value="1.60" step="0.01" inputmode="decimal">
+      <div class="hint">Update this to today's rate. (e.g. ₱1.60 per ฿1)</div>
+
+      <label style="margin-top:16px">📘 Your Facebook page link</label>
+      <input type="text" id="fbPage" placeholder="https://facebook.com/YourPasabuyPage" onchange="saveAll(false)">
+      <div class="hint">Added to the bottom of every copied quote so customers can order from you.</div>
+
+      <label style="margin-top:16px">Service fee method — applies to ALL items</label>
+      <select id="feeMethod" onchange="render()">
+        <option value="pct">Percentage markup</option>
+        <option value="kg">Per-kilo</option>
+        <option value="tier">Tiered (by price)</option>
+      </select>
+      <div class="method-desc" id="methodDesc"></div>
+
+      <label style="margin-top:16px">Default markup % (percentage method)</label>
+      <input type="number" id="defMarkup" value="20" step="1" inputmode="decimal">
+
+      <label style="margin-top:16px">Rate per kilo — ฿ (per-kg method)</label>
+      <input type="number" id="perKg" value="150" step="1" inputmode="decimal">
+      <div class="hint">Service fee = weight × this rate.</div>
+
+      <label style="margin-top:16px">Price tiers (tiered method)</label>
+      <div class="hint" style="margin-bottom:8px">If item cost is up to the ฿ amount → charge that %. Leave the last "up to" blank for "and above".</div>
+      <div id="tiers"></div>
+      <button class="btn-ghost" style="margin-top:4px" onclick="addTier()">+ Add tier</button>
+
+      <div style="margin-top:18px">
+        <div class="toggle">
+          <span>🚚 Shipping / freight (per kg)</span>
+          <label class="switch"><input type="checkbox" id="useShip" checked onchange="render()"><span class="slider"></span></label>
+        </div>
+        <div id="shipBox">
+          <label>Shipping rate per kilo — ฿</label>
+          <input type="number" id="shipKg" value="80" step="1" inputmode="decimal">
+        </div>
+
+        <div class="toggle">
+          <span>💳 Payment / transfer fee (%)</span>
+          <label class="switch"><input type="checkbox" id="usePay" checked onchange="render()"><span class="slider"></span></label>
+        </div>
+        <div id="payBox">
+          <label>Fee % on the subtotal</label>
+          <input type="number" id="payPct" value="3" step="0.5" inputmode="decimal">
+        </div>
+      </div>
+
+      <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px">
+        <label style="margin-top:0">💾 Backup &amp; Restore</label>
+        <div class="hint" style="margin-bottom:10px">Save ALL your data (orders, products, rates) to one file. Keep it safe or use it to move everything to a new phone.</div>
+        <button class="btn-primary" style="background:var(--accent2)" onclick="backupData()">⬇️ Download backup file</button>
+        <button class="btn-ghost" style="margin-top:10px" onclick="document.getElementById('restoreFile').click()">⬆️ Restore from backup</button>
+        <input type="file" id="restoreFile" accept=".json,application/json" style="display:none" onchange="restoreData(this)">
+      </div>
+    </div>
+  </div>
+
+  <!-- CLOUD SYNC -->
+  <div class="card collapsed" id="syncCard">
+    <div class="collapsible-head" onclick="toggleCollapse('syncCard')">
+      <h2 style="margin:0">☁️ Cloud sync <span class="badge" id="syncBadge">off</span></h2>
+      <span class="arrow">▾</span>
+    </div>
+    <div class="collapsible-body" style="margin-top:12px">
+      <div class="hint" style="margin-bottom:10px">Share one live set of orders across all your devices. Enter the same details on each device you use.</div>
+      <label style="margin-top:0">Supabase Project URL</label>
+      <input type="text" id="sbUrl" placeholder="https://xxxxx.supabase.co" autocomplete="off">
+      <label>Supabase anon (public) key</label>
+      <input type="password" id="sbKey" placeholder="eyJhbGci..." autocomplete="off">
+      <label>Your secret shop code (same on every device)</label>
+      <input type="text" id="sbShop" placeholder="e.g. myleen-9f3k2q — keep it private">
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button class="btn-primary" onclick="syncConnect()">Connect &amp; sync</button>
+        <button class="btn-ghost" style="width:auto;padding:12px 16px" onclick="syncDisconnect()">Turn off</button>
+      </div>
+      <div class="hint" id="syncStatus" style="margin-top:10px;min-height:16px"></div>
+
+      <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+        <div class="hint" style="margin-bottom:8px">➕ Adding another device? On this connected device tap Copy, then paste it on the new one.</div>
+        <button class="btn-ghost" onclick="syncCopySetup()">📋 Copy setup for another device</button>
+        <label style="margin-top:12px">Paste setup from your other device</label>
+        <input type="text" id="sbPaste" placeholder="paste the setup code here">
+        <button class="btn-ghost" style="margin-top:8px" onclick="syncPasteSetup()">Apply pasted setup</button>
+      </div>
+      <div class="hint" style="margin-top:12px">🔒 Your Facebook token is <b>not</b> synced — it stays on each device. Anyone with your URL, key, and shop code can see this data, so keep them private.</div>
+    </div>
+  </div>
+
+  <div id="page-orders">
+  <!-- ADD ITEM -->
+  <div class="card">
+    <h2>➕ Add an item</h2>
+
+    <label>👤 Customer — Facebook link or name</label>
+    <input type="text" id="iCust" placeholder="paste FB link or type customer name" oninput="custHintUpdate()">
+    <div class="hint">Same link/name = orders group under one customer. Stays filled so you can add several items for the same person.</div>
+    <div id="custHint" class="cust-hint"></div>
+
+    <label>Item name</label>
+    <input type="text" id="iName" placeholder="e.g. Charles & Keith bag">
+
+    <div class="row">
+      <div>
+        <label>Cost you paid — ฿</label>
+        <input type="number" id="iCost" placeholder="0" step="1" inputmode="decimal">
+      </div>
+      <div>
+        <label>Weight — kg</label>
+        <input type="number" id="iWeight" placeholder="0" step="0.1" inputmode="decimal">
+      </div>
+    </div>
+
+    <label>📝 Notes (optional)</label>
+    <input type="text" id="iNotes" placeholder="e.g. size M, black, paid ฿500 deposit">
+
+    <button class="btn-add" id="addBtn" onclick="addItem()">Add to order</button>
+    <button class="btn-ghost" id="cancelBtn" style="display:none;margin-top:8px" onclick="cancelEdit()">Cancel edit</button>
+  </div>
+
+  <!-- ORDER -->
+  <div class="card" id="orderCard">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h2 style="margin:0">🧾 Order <span class="badge" id="countBadge">0 items</span></h2>
+      <button id="saveBtn" onclick="saveAll(true)" style="width:auto;padding:8px 14px;background:var(--accent2);color:#04121f;font-size:13px;font-weight:700">💾 Save</button>
+    </div>
+    <div class="search-wrap">
+      <input id="search" placeholder="🔍 Search customer by name or FB link" oninput="render()">
+      <button class="clr" id="clearSearch" onclick="clearSearch()" style="display:none">✕</button>
+    </div>
+    <div id="items"><div class="empty">No items yet.<br>Add one above to see the price.</div></div>
+  </div>
+
+  <!-- TOTALS -->
+  <div class="card total-card" id="totalsCard" style="display:none">
+    <div class="total-line"><span>Items subtotal</span><span class="thb-amt" id="tItems">฿0</span></div>
+    <div class="total-line" id="tShipLine"><span>Shipping</span><span class="thb-amt" id="tShip">฿0</span></div>
+    <div class="total-line" id="tPayLine"><span>Payment fee</span><span class="thb-amt" id="tPay">฿0</span></div>
+    <div class="total-line"><span>Total in Baht</span><span class="thb-amt" id="tThb">฿0</span></div>
+    <div class="total-line grand"><span>ALL CUSTOMERS</span><span class="amt" id="tPhp">₱0</span></div>
+    <div class="copy-note">Each customer has their own 📋 Copy quote button above. This copies the whole day's order.</div>
+    <button class="btn-primary" style="margin-top:12px" onclick="copyAll(event)">📋 Copy full order (all customers)</button>
+    <button class="btn-primary" style="margin-top:10px;background:var(--accent2)" onclick="exportCSV()">⬇️ Export to Excel (.csv)</button>
+    <button class="btn-ghost" style="margin-top:10px" onclick="clearAll()">Clear order</button>
+  </div>
+  </div><!-- /page-orders -->
+
+  <!-- PRODUCTS PAGE -->
+  <div id="page-products" style="display:none">
+    <div class="card">
+      <h2>📦 Add a product</h2>
+      <label>Product name</label>
+      <input type="text" id="pName" placeholder="e.g. Gentlewoman Medium Tote">
+      <div class="row">
+        <div>
+          <label>Cost you paid — ฿</label>
+          <input type="number" id="pCost" placeholder="0" step="1" inputmode="decimal">
+        </div>
+        <div>
+          <label>Weight — kg</label>
+          <input type="number" id="pWeight" placeholder="0" step="0.1" inputmode="decimal">
+        </div>
+      </div>
+      <label>Markup % — optional</label>
+      <input type="number" id="pMarkup" placeholder="leave blank = use your global fee setting" step="1" inputmode="decimal">
+      <button class="btn-add" id="pAddBtn" onclick="addProduct()">Save product</button>
+      <button class="btn-ghost" id="pCancelBtn" style="display:none;margin-top:8px" onclick="cancelProductEdit()">Cancel edit</button>
+    </div>
+
+    <div class="card">
+      <h2>📦 Products <span class="badge" id="pCount">0</span></h2>
+      <div class="hint" style="margin-bottom:10px">Tap a product, add the customer's FB link/name + a note, and it goes straight to your Orders.</div>
+      <div id="products"><div class="empty">No products yet.<br>Add one above to quick-order it.</div></div>
+    </div>
+  </div>
+
+  <!-- LIVE WATCHER PAGE -->
+  <div id="page-live" style="display:none">
+    <div class="card" id="wControlCard">
+      <h2>📡 Live comment watcher</h2>
+      <div class="w-status" id="wStatusLine">Not connected. Open <b>Watcher setup</b> below and add your Facebook token.</div>
+      <label style="margin-top:0">🏷️ Now showing — search a product, or add a new one</label>
+      <input id="wSearch" placeholder="🔍 Search or type a new product name" oninput="wSearchUpdate()" autocomplete="off">
+      <div id="wNowCurrent" class="w-now-current"></div>
+      <div id="wSearchResults" class="w-results"></div>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="btn-primary" id="wWatchBtn" onclick="wToggle()">▶ Start watching</button>
+        <button class="btn-ghost" style="width:auto;padding:12px 18px" onclick="wTick()">⟳</button>
+      </div>
+      <div class="toggle" style="margin-top:14px;border-top:1px solid var(--line)">
+        <span>⚡ Auto-confirm &amp; add every detection (skip review)</span>
+        <label class="switch"><input type="checkbox" id="wAutoAdd" onchange="wCfg.autoAdd=this.checked;saveAll(false)"><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="card" id="wFeedCard">
+      <h2>🛒 Detected comments <span class="badge" id="wCount">0 to review</span></h2>
+      <div class="w-filter" id="wFilterBar">
+        <button data-f="pending" class="on" onclick="wSetFilter('pending')">🕓 To review</button>
+        <button data-f="confirmed" onclick="wSetFilter('confirmed')">✅ Confirmed</button>
+        <button data-f="all" onclick="wSetFilter('all')">All</button>
+      </div>
+      <div id="wFeed"><div class="empty">No comments yet.<br>Tap <b>Start watching</b> (or <b>Demo</b> in setup) to see them here.</div></div>
+    </div>
+
+    <div class="card collapsed" id="wSetupCard">
+      <div class="collapsible-head" onclick="toggleCollapse('wSetupCard')">
+        <h2 style="margin:0">⚙️ Watcher setup <span class="badge">token &amp; replies</span></h2>
+        <span class="arrow">▾</span>
+      </div>
+      <div class="collapsible-body" style="margin-top:12px">
+        <label style="margin-top:0">Facebook Page Access Token</label>
+        <input type="password" id="wToken" placeholder="EAAG..." autocomplete="off" onchange="wCfg.token=this.value.trim();saveAll(false)">
+        <div class="hint">Stays on your phone only. Needs a Page token with pages_read_engagement, pages_manage_engagement, pages_manage_metadata, pages_messaging.</div>
+
+        <label>What to watch</label>
+        <select id="wMode" onchange="wCfg.mode=this.value;saveAll(false)">
+          <option value="auto">Auto — Live if I'm live, else latest post</option>
+          <option value="post">A specific post (link below)</option>
+          <option value="live">Live only</option>
+        </select>
+        <label>Specific post link (for "specific post" mode)</label>
+        <input type="text" id="wPost" placeholder="paste the Facebook post link" onchange="wCfg.post=this.value.trim();saveAll(false)">
+
+        <label>Order keywords (comma-separated)</label>
+        <input type="text" id="wKeywords" onchange="wCfg.keywords=this.value;saveAll(false)">
+
+        <div class="toggle"><span>✉️ Auto-reply publicly to orders</span><label class="switch"><input type="checkbox" id="wReplyOn" onchange="wCfg.replyOn=this.checked;saveAll(false)"><span class="slider"></span></label></div>
+        <div class="toggle"><span>↳ Send reply automatically</span><label class="switch"><input type="checkbox" id="wReplyAuto" onchange="wCfg.replyAuto=this.checked;saveAll(false)"><span class="slider"></span></label></div>
+        <label>Reply template — {name} {item}</label>
+        <input type="text" id="wReplyTpl" onchange="wCfg.replyTpl=this.value;saveAll(false)">
+
+        <div class="toggle"><span>💬 Message buyer (Messenger)</span><label class="switch"><input type="checkbox" id="wPmOn" onchange="wCfg.pmOn=this.checked;saveAll(false)"><span class="slider"></span></label></div>
+        <div class="toggle"><span>↳ Send DM automatically</span><label class="switch"><input type="checkbox" id="wPmAuto" onchange="wCfg.pmAuto=this.checked;saveAll(false)"><span class="slider"></span></label></div>
+        <label>DM template — {name} {item}</label>
+        <input type="text" id="wPmTpl" onchange="wCfg.pmTpl=this.value;saveAll(false)">
+
+        <div style="margin-top:16px;display:flex;gap:10px">
+          <button class="btn-primary" onclick="wConnect()">Save &amp; connect</button>
+          <button class="btn-ghost" style="width:auto;padding:12px 18px" onclick="wDemo()">Demo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>💾 Everything auto-saves on your phone · edit rates anytime in Settings ⚙️</footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ---------- state ---------- */
+let items = [];
+let editIndex = null;
+let products = [];
+let pEditIndex = null;
+let page = 'orders';
+let openCust = new Set();
+let tiers = [
+  {upto:500, pct:25},
+  {upto:1500, pct:20},
+  {upto:null, pct:15}
+];
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+const num = id => parseFloat($(id).value) || 0;
+const fmtT = n => "฿" + n.toLocaleString(undefined,{maximumFractionDigits:0});
+const fmtP = n => "₱" + n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+function nowISO(){ try{ return new Date().toISOString(); }catch(e){ return ''; } }
+
+function toggleCollapse(id){ $(id).classList.toggle('collapsed'); }
+
+/* ---------- tiers UI ---------- */
+function renderTiers(){
+  const box = $('tiers'); box.innerHTML='';
+  tiers.forEach((t,i)=>{
+    const row=document.createElement('div');
+    row.className='tier-row';
+    row.innerHTML =
+      `<span style="font-size:11px;color:var(--muted);flex:none">up to ฿</span>
+       <input type="number" value="${t.upto===null?'':t.upto}" placeholder="∞" inputmode="decimal"
+              onchange="tiers[${i}].upto=this.value===''?null:parseFloat(this.value);render()">
+       <span style="font-size:11px;color:var(--muted);flex:none">→</span>
+       <input type="number" value="${t.pct}" inputmode="decimal"
+              onchange="tiers[${i}].pct=parseFloat(this.value)||0;render()">
+       <span style="font-size:11px;color:var(--muted);flex:none">%</span>
+       <button class="x" onclick="removeTier(${i})">✕</button>`;
+    box.appendChild(row);
+  });
+}
+function addTier(){ tiers.push({upto:null,pct:10}); renderTiers(); render(); }
+function removeTier(i){ tiers.splice(i,1); renderTiers(); render(); }
+
+function tierPct(cost){
+  const sorted=[...tiers].sort((a,b)=>{
+    if(a.upto===null)return 1; if(b.upto===null)return -1; return a.upto-b.upto;
+  });
+  for(const t of sorted){ if(t.upto===null || cost<=t.upto) return t.pct; }
+  return sorted.length?sorted[sorted.length-1].pct:0;
+}
+
+/* ---------- method description ---------- */
+function methodDesc(){
+  const el=$('methodDesc'); if(!el) return;
+  const m=$('feeMethod')?$('feeMethod').value:'pct';
+  if(m==='pct') el.textContent=`Every item: fee = cost × ${num('defMarkup')}%`;
+  else if(m==='kg') el.textContent=`Every item: fee = weight × ฿${num('perKg')}/kg`;
+  else el.textContent=`Every item: fee = % from the price tiers below`;
+}
+
+/* ---------- core pricing ---------- */
+function priceItem(it){
+  const cost=it.cost, w=it.weight;
+  let fee=0, feeLabel='';
+  if(it.markup!=null && it.markup!==''){
+    const mk=parseFloat(it.markup)||0; fee=cost*mk/100; feeLabel=`Custom ${mk}%`;
+  } else {
+    const m=$('feeMethod')?$('feeMethod').value:'pct';
+    if(m==='pct'){ fee=cost*num('defMarkup')/100; feeLabel=`Markup ${num('defMarkup')}%`; }
+    else if(m==='kg'){ fee=w*num('perKg'); feeLabel=`Per-kg ฿${num('perKg')}×${w}kg`; }
+    else { const p=tierPct(cost); fee=cost*p/100; feeLabel=`Tier ${p}%`; }
+  }
+
+  const ship = ($('useShip').checked ? w*num('shipKg') : 0);
+  const base = cost + fee + ship;
+  const pay = ($('usePay').checked ? base*num('payPct')/100 : 0);
+  const thb = base + pay;
+  return {cost,fee,feeLabel,ship,pay,thb,php:thb*num('fx')};
+}
+
+/* ---------- add / remove items ---------- */
+function addItem(){
+  const name=$('iName').value.trim()||'Item';
+  const cost=num('iCost'), weight=num('iWeight');
+  if(cost<=0){ $('iCost').focus(); $('iCost').style.borderColor='var(--danger)'; return; }
+  $('iCost').style.borderColor='';
+  const editing = editIndex!==null;
+  const data={name,cost,weight,cust:$('iCust').value.trim(),notes:$('iNotes').value.trim()};
+  if(editing){
+    items[editIndex]={...items[editIndex],...data};
+    stopEdit();
+    $('iCust').value='';
+  } else {
+    items.push({...data,showBd:false,added:nowISO()});
+    // keep iCust filled for fast multi-item entry
+  }
+  $('iName').value=''; $('iCost').value=''; $('iWeight').value=''; $('iNotes').value='';
+  custHintUpdate();
+  $('iName').focus();
+  render();
+  const ok=saveAll(false);
+  toast(ok ? (editing?'✓ Updated & saved':'✓ Added & saved')
+           : (editing?'✓ Updated (saving works on your phone)':'✓ Added (saving works on your phone)'), !ok);
+}
+function editItem(i){
+  const it=items[i];
+  $('iName').value=it.name; $('iCost').value=it.cost; $('iWeight').value=it.weight||'';
+  $('iCust').value=it.cust||''; $('iNotes').value=it.notes||'';
+  editIndex=i;
+  $('addBtn').textContent='💾 Update item'; $('cancelBtn').style.display='block';
+  methodDesc(); custHintUpdate();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function stopEdit(){
+  editIndex=null;
+  $('addBtn').textContent='Add to order'; $('cancelBtn').style.display='none';
+}
+function cancelEdit(){
+  stopEdit();
+  $('iName').value=''; $('iCost').value=''; $('iWeight').value=''; $('iCust').value=''; $('iNotes').value='';
+  custHintUpdate();
+}
+function delItem(i){
+  if(editIndex===i) cancelEdit();
+  else if(editIndex!==null && editIndex>i) editIndex--;
+  items.splice(i,1); render();
+  toast('🗑️ Removed & saved');
+}
+function toggleBd(i){ items[i].showBd=!items[i].showBd; render(); }
+function toggleCust(gi, el){
+  const {order}=computeGroups();
+  const key=order[gi]; if(key==null) return;
+  const collapsed=el.parentNode.classList.toggle('collapsed');
+  if(collapsed) openCust.delete(key); else openCust.add(key);
+}
+function clearAll(){ items=[]; cancelEdit(); render(); }
+function clearSearch(){ $('search').value=''; render(); }
+function showTypedCustomer(){
+  $('search').value=$('iCust').value.trim();
+  render();
+  $('orderCard').scrollIntoView({behavior:'smooth'});
+}
+function custHintUpdate(){
+  const el=$('custHint'); if(!el) return;
+  const key=custKey($('iCust').value);
+  if(key==='__none__'){ el.innerHTML=''; return; }
+  const {groups}=computeGroups();
+  const g=groups[key];
+  if(g && !(editIndex!==null && g.rows.length===1 && g.rows[0].i===editIndex)){
+    el.innerHTML=`👤 <b>${escapeHtml(g.label||'This customer')}</b> already has ${g.rows.length} order${g.rows.length>1?'s':''}. <span class="link" onclick="showTypedCustomer()">show &amp; edit ↓</span>`;
+  } else el.innerHTML='';
+}
+
+/* ---------- pages ---------- */
+function showPage(pg){
+  page=pg;
+  $('page-orders').style.display   = pg==='orders'?'block':'none';
+  $('page-products').style.display = pg==='products'?'block':'none';
+  $('page-live').style.display     = pg==='live'?'block':'none';
+  $('tabOrders').classList.toggle('active', pg==='orders');
+  $('tabProducts').classList.toggle('active', pg==='products');
+  $('tabLive').classList.toggle('active', pg==='live');
+  const wrap=document.querySelector('.wrap'); if(wrap) wrap.classList.toggle('live-wide', pg==='live');
+  if(pg==='orders') render();
+  else if(pg==='products') renderProducts();
+  else { wSyncSetup(); wRender(); }
+  window.scrollTo({top:0});
+}
+
+/* ---------- products ---------- */
+function addProduct(){
+  const name=$('pName').value.trim()||'Product';
+  const cost=parseFloat($('pCost').value)||0;
+  const weight=parseFloat($('pWeight').value)||0;
+  if(cost<=0){ $('pCost').focus(); $('pCost').style.borderColor='var(--danger)'; return; }
+  $('pCost').style.borderColor='';
+  const mkRaw=$('pMarkup')?$('pMarkup').value:'';
+  const prod={name,cost,weight};
+  if(mkRaw!=='' && mkRaw!=null) prod.markup=parseFloat(mkRaw)||0;
+  if(pEditIndex!==null){ products[pEditIndex]=prod; stopProductEdit(); }
+  else products.push(prod);
+  $('pName').value=''; $('pCost').value=''; $('pWeight').value=''; if($('pMarkup'))$('pMarkup').value='';
+  saveAll(false); renderProducts();
+  toast('✓ Product saved');
+}
+function editProduct(i){
+  const pr=products[i];
+  $('pName').value=pr.name; $('pCost').value=pr.cost; $('pWeight').value=pr.weight||'';
+  if($('pMarkup')) $('pMarkup').value=(pr.markup!=null?pr.markup:'');
+  pEditIndex=i; $('pAddBtn').textContent='💾 Update product'; $('pCancelBtn').style.display='block';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function stopProductEdit(){ pEditIndex=null; $('pAddBtn').textContent='Save product'; $('pCancelBtn').style.display='none'; }
+function cancelProductEdit(){ stopProductEdit(); $('pName').value=''; $('pCost').value=''; $('pWeight').value=''; if($('pMarkup'))$('pMarkup').value=''; }
+function delProduct(i){ if(pEditIndex===i) cancelProductEdit(); products.splice(i,1); saveAll(false); renderProducts(); toast('🗑️ Product removed'); }
+function orderProduct(i){
+  const pr=products[i];
+  const cust=$('pc_'+i).value.trim();
+  const notes=$('pn_'+i).value.trim();
+  items.push({name:pr.name,cost:pr.cost,weight:pr.weight,markup:pr.markup,cust,notes,showBd:false,added:nowISO()});
+  saveAll(false); render(); renderProducts();
+  const card=$('products').children[i]; if(card) card.classList.remove('collapsed');
+  const ci=$('pc_'+i); if(ci) ci.focus();
+  toast(cust?`✓ Added to ${cust}'s order`:'✓ Added to orders (walk-in)');
+}
+function renderProducts(){
+  const box=$('products'); if(!box) return;
+  $('pCount').textContent=products.length;
+  if(!products.length){ box.innerHTML='<div class="empty">No products yet.<br>Add one above to quick-order it.</div>'; return; }
+  box.innerHTML='';
+  products.forEach((pr,i)=>{
+    const p=priceItem({cost:pr.cost,weight:pr.weight});
+    // customers who ordered this product (matched by product name)
+    const orders=items.filter(it=>it.name===pr.name);
+    let custHtml, pTotalPhp=0;
+    if(orders.length){
+      custHtml=orders.map(it=>{
+        const pp=priceItem(it); pTotalPhp+=pp.php;
+        const who=it.cust?custLink(it.cust):'🚶 Walk-in';
+        return `<div class="pc-row"><span>• ${who}${it.notes?` <span class="pc-note">— ${escapeHtml(it.notes)}</span>`:''}</span><span>${fmtP(pp.php)}</span></div>`;
+      }).join('');
+    } else {
+      custHtml='<div class="pc-empty">No orders yet.</div>';
+    }
+    const card=document.createElement('div');
+    card.className='cust-group prod-card collapsed';
+    card.innerHTML=
+      `<div class="cust-head prod-head" onclick="this.parentNode.classList.toggle('collapsed')">
+         <div class="cust-name">📦 ${escapeHtml(pr.name)}<span class="cust-count">฿${pr.cost.toLocaleString()} · ${pr.weight||0}kg${pr.markup!=null?' · '+pr.markup+'% markup':''}</span>
+           <span class="prod-sub">🧑‍🤝‍🧑 ${orders.length} ordered${orders.length?` · ${fmtP(pTotalPhp)}`:''}</span>
+         </div>
+         <div style="display:flex;align-items:center;gap:8px;flex:none">
+           <div class="cust-total">${fmtP(p.php)}<span>sells at</span></div>
+           <span class="arrow">▾</span>
+         </div>
+       </div>
+       <div class="prod-body">
+         <div class="prod-order">
+           <label style="margin-top:0">👤 Customer — FB link or name</label>
+           <input type="text" id="pc_${i}" placeholder="paste FB link or type name">
+           <label>📝 Note to customer (optional)</label>
+           <input type="text" id="pn_${i}" placeholder="e.g. reserve until Friday">
+           <button class="btn-add" style="margin-top:12px" onclick="orderProduct(${i})">➕ Add to order</button>
+         </div>
+         <div class="prod-custs">
+           <div class="pc-title">🧑‍🤝‍🧑 Ordered by ${orders.length}${orders.length?` — total ${fmtP(pTotalPhp)}`:''}</div>
+           ${custHtml}
+         </div>
+         <div style="display:flex;gap:10px;margin-top:10px">
+           <button class="btn-ghost" onclick="editProduct(${i})">✏️ Edit</button>
+           <button class="btn-ghost" onclick="delProduct(${i})">🗑️ Delete</button>
+         </div>
+       </div>`;
+    box.appendChild(card);
+  });
+}
+
+/* ---------- render ---------- */
+function render(){
+  methodDesc(); renderShipPay(); saveAll(false); custHintUpdate();
+  const box=$('items');
+  const q=($('search').value||'').trim().toLowerCase();
+  $('clearSearch').style.display = q?'block':'none';
+  if(items.length===0){
+    $('countBadge').textContent='0 items';
+    box.innerHTML='<div class="empty">No items yet.<br>Add one above to see the price.</div>';
+    $('totalsCard').style.display='none';
+    return;
+  }
+  const {groups,order}=computeGroups();
+  const shown=order.filter(key=>{
+    if(!q) return true;
+    const g=groups[key];
+    return key.includes(q) || (g.label||'').toLowerCase().includes(q) || custKey(q)===key;
+  });
+  const shownItems=shown.reduce((n,k)=>n+groups[k].rows.length,0);
+  $('countBadge').textContent = q ? `${shownItems} of ${items.length}` : `${items.length} item${items.length>1?'s':''}`;
+  if(shown.length===0){
+    box.innerHTML=`<div class="empty">No customer matches "${escapeHtml($('search').value.trim())}".</div>`;
+    $('totalsCard').style.display='none';
+    return;
+  }
+  let sItems=0,sShip=0,sPay=0,sThb=0,sPhp=0;
+  box.innerHTML='';
+  shown.forEach(key=>{
+    const g=groups[key]; const isNone=key==='__none__';
+    const gi=order.indexOf(key);
+    const head=isNone?'🚶 Walk-in / no FB link':('👤 '+custLink(g.label||'Customer'));
+    let rowsHtml='';
+    g.rows.forEach(({it,i,p})=>{
+      sItems+=p.cost+p.fee; sShip+=p.ship; sPay+=p.pay; sThb+=p.thb; sPhp+=p.php;
+      rowsHtml+=
+      `<div class="item"${editIndex===i?' style="outline:2px solid var(--accent)"':''}>
+         <div class="item-top">
+           <div>
+             <div class="item-name">${escapeHtml(it.name)}${it.fromFB?'<span class="fb-badge">🔴 FB</span>':''}</div>
+             <div class="item-sub">฿${p.cost.toLocaleString()} · ${it.weight||0}kg · ${p.feeLabel}</div>
+             ${it.notes?`<div class="item-note">📝 ${escapeHtml(it.notes)}</div>`:''}
+           </div>
+           <div class="item-price">
+             <div class="php">${fmtP(p.php)}</div>
+             <div class="thb">${fmtT(p.thb)}</div>
+             <div><button class="item-edit" onclick="editItem(${i})">✏️</button><button class="item-del" onclick="delItem(${i})">🗑️</button></div>
+           </div>
+         </div>
+         <span class="toggle-bd" onclick="toggleBd(${i})">${it.showBd?'▴ hide':'▾ breakdown'}</span>
+         <div class="breakdown ${it.showBd?'show':''}">
+           <div><span>Item cost</span><span>${fmtT(p.cost)}</span></div>
+           <div><span>Service fee (${p.feeLabel})</span><span>${fmtT(p.fee)}</span></div>
+           ${p.ship?`<div><span>Shipping</span><span>${fmtT(p.ship)}</span></div>`:''}
+           ${p.pay?`<div><span>Payment fee</span><span>${fmtT(p.pay)}</span></div>`:''}
+           <div class="b-total"><span>Total</span><span>${fmtT(p.thb)} = ${fmtP(p.php)}</span></div>
+         </div>
+       </div>`;
+    });
+    const collapsed = q ? false : !openCust.has(key);
+    const card=document.createElement('div');
+    card.className='cust-group'+(collapsed?' collapsed':'');
+    card.innerHTML=
+      `<div class="cust-head ord-head" onclick="toggleCust(${gi}, this)">
+         <div class="cust-name">${head}<span class="cust-count">${g.rows.length} item${g.rows.length>1?'s':''}</span></div>
+         <div style="display:flex;align-items:center;gap:8px;flex:none">
+           <div class="cust-total">${fmtP(g.php)}<span>${fmtT(g.thb)}</span></div>
+           <span class="arrow">▾</span>
+         </div>
+       </div>
+       <div class="ord-body">
+         ${rowsHtml}
+         <button class="btn-copy-cust" onclick="copyCust(${gi},event)">📋 Copy ${isNone?'this':'their'} quote</button>
+       </div>`;
+    box.appendChild(card);
+  });
+  // totals (reflect what's shown)
+  $('totalsCard').style.display='block';
+  $('tItems').textContent=fmtT(sItems);
+  $('tShip').textContent=fmtT(sShip);
+  $('tPay').textContent=fmtT(sPay);
+  $('tThb').textContent=fmtT(sThb);
+  $('tPhp').textContent=fmtP(sPhp);
+  $('tShipLine').style.display = sShip>0?'flex':'none';
+  $('tPayLine').style.display  = sPay>0?'flex':'none';
+}
+
+function renderShipPay(){
+  $('shipBox').style.display=$('useShip').checked?'block':'none';
+  $('payBox').style.display=$('usePay').checked?'block':'none';
+}
+
+function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function fbUrl(v){
+  if(!v) return null;
+  let url=String(v).trim();
+  if(/^(https?:\/\/|www\.|facebook\.com|fb\.com|m\.me\/)/i.test(url)){
+    if(!/^https?:\/\//i.test(url)) url='https://'+url;
+    return url;
+  }
+  return null;
+}
+function custDisplay(v){
+  if(!fbUrl(v)) return escapeHtml(v||'Customer');
+  const idm=String(v).match(/profile\.php\?id=(\d+)/i);
+  if(idm) return 'fb:'+idm[1];
+  let h=String(v).trim().replace(/^https?:\/\//i,'').replace(/^www\./i,'').replace(/\/+$/,'');
+  h=h.replace(/^(facebook\.com|fb\.com|m\.me)\//i,'').split(/[?#]/)[0];
+  return escapeHtml(h||v);
+}
+function custLink(v){
+  const u=fbUrl(v);
+  if(u) return `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" style="color:var(--accent)" onclick="event.stopPropagation()">${custDisplay(v)} 🔗</a>`;
+  return escapeHtml(v);
+}
+
+/* ---------- save / load (works when file is saved on your phone) ---------- */
+const LS_KEY='pasabuy_calc_v1';
+function collectData(){
+  return {
+    fx:$('fx').value,defMarkup:$('defMarkup').value,perKg:$('perKg').value,
+    shipKg:$('shipKg').value,payPct:$('payPct').value,
+    useShip:$('useShip').checked,usePay:$('usePay').checked,
+    feeMethod:$('feeMethod').value,
+    fbPage:$('fbPage').value,tiers,items,products,
+    wCfg, wActive, wAdded, wDismissed
+  };
+}
+function saveAll(fromBtn){
+  let ok=true;
+  try{ localStorage.setItem(LS_KEY,JSON.stringify(collectData())); if(fromBtn) flashSaved(true); }
+  catch(e){ ok=false; if(fromBtn) flashSaved(false); }
+  syncPush();
+  return ok;
+}
+let toastTimer=null;
+function toast(msg,warn){
+  const t=$('toast'); if(!t) return;
+  t.textContent=msg; t.className='toast show'+(warn?' warn':'');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{ t.className='toast'; },1800);
+}
+function applyData(d){
+  if(!d || typeof d!=='object') return;
+  const set=(id,v)=>{ if(v!=null&&$(id)) $(id).value=v; };
+  set('fx',d.fx);set('defMarkup',d.defMarkup);set('perKg',d.perKg);
+  set('shipKg',d.shipKg);set('payPct',d.payPct);set('fbPage',d.fbPage);
+  set('feeMethod',d.feeMethod);
+  if(typeof d.useShip==='boolean')$('useShip').checked=d.useShip;
+  if(typeof d.usePay==='boolean')$('usePay').checked=d.usePay;
+  if(Array.isArray(d.tiers)&&d.tiers.length)tiers=d.tiers;
+  if(Array.isArray(d.items))items=d.items;
+  if(Array.isArray(d.products))products=d.products;
+  if(d.wCfg && typeof d.wCfg==='object') wCfg=Object.assign(wCfg,d.wCfg);
+  if(typeof d.wActive==='string') wActive=d.wActive;
+  if(d.wAdded && typeof d.wAdded==='object') wAdded=d.wAdded;
+  if(d.wDismissed && typeof d.wDismissed==='object') wDismissed=d.wDismissed;
+}
+function loadAll(){
+  try{
+    const raw=localStorage.getItem(LS_KEY); if(!raw) return;
+    applyData(JSON.parse(raw));
+  }catch(e){}
+}
+function flashSaved(ok){
+  const b=$('saveBtn'); if(!b) return; const old='💾 Save';
+  b.textContent= ok?'✓ Saved':'⚠ Cannot save here';
+  b.style.background= ok?'var(--accent2)':'var(--danger)';
+  setTimeout(()=>{ b.textContent=old; b.style.background='var(--accent2)'; },1500);
+}
+
+/* ---------- customer grouping ---------- */
+function custKey(v){
+  if(!v||!v.trim()) return '__none__';
+  let s=v.trim().toLowerCase();
+  s=s.replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/+$/,'');
+  const idm=s.match(/profile\.php\?id=(\d+)/);
+  if(idm) return 'fb:'+idm[1];
+  s=s.split(/[?#]/)[0];
+  s=s.replace(/^(facebook\.com|fb\.com|m\.me)\//,'');
+  return s||'__none__';
+}
+function computeGroups(){
+  const groups={}, order=[];
+  items.forEach((it,i)=>{
+    const p=priceItem(it), key=custKey(it.cust);
+    if(!groups[key]){ groups[key]={key,label:it.cust||'',rows:[],thb:0,php:0}; order.push(key); }
+    groups[key].rows.push({it,i,p});
+    groups[key].thb+=p.thb; groups[key].php+=p.php;
+  });
+  return {groups,order};
+}
+
+/* ---------- copy quotes ---------- */
+function copyText(text,btn){
+  const ta=document.createElement('textarea');
+  ta.value=text; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); }catch(e){}
+  document.body.removeChild(ta);
+  if(btn){ const old=btn.textContent; btn.textContent='✓ Copied!'; setTimeout(()=>btn.textContent=old,1500); }
+}
+function copyCust(gi,ev){
+  const {groups,order}=computeGroups();
+  const key=order[gi]; if(key==null) return; const g=groups[key];
+  const lines=['🛍️ Pasabuy Quote'];
+  if(key!=='__none__' && g.label) lines.push(g.label);
+  lines.push('');
+  g.rows.forEach(({it,p})=>{
+    lines.push(`• ${it.name} — ${fmtP(p.php)}`);
+    if(it.notes) lines.push(`   ↳ ${it.notes}`);
+  });
+  lines.push('');
+  lines.push(`TOTAL: ${fmtP(g.php)}`);
+  const fb=$('fbPage').value.trim();
+  if(fb){ lines.push(''); lines.push(`📘 Order from us: ${fb}`); }
+  copyText(lines.join('\n'), ev&&ev.target);
+}
+function copyAll(ev){
+  const {groups,order}=computeGroups();
+  const lines=['🛍️ Pasabuy — Full Order']; let gThb=0,gPhp=0;
+  order.forEach(key=>{
+    const g=groups[key];
+    lines.push('');
+    lines.push((key==='__none__'?'🚶 Walk-in':'👤 '+(g.label||'Customer'))+`  — ${fmtP(g.php)}`);
+    g.rows.forEach(({it,p})=> lines.push(`   • ${it.name} — ${fmtP(p.php)}`));
+    gThb+=g.thb; gPhp+=g.php;
+  });
+  lines.push('');
+  lines.push(`GRAND TOTAL: ${fmtP(gPhp)}`);
+  copyText(lines.join('\n'), ev&&ev.target);
+}
+
+/* ---------- export to Excel (CSV) ---------- */
+function csvCell(v){
+  v=(v==null?'':String(v));
+  return /[",\n\r]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+}
+function r2(n){ return Math.round(n*100)/100; }
+function download(content,filename,mime){
+  const blob=new Blob([content],{type:mime});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+function exportCSV(){
+  if(!items.length){ toast('No orders to export yet',true); return; }
+  const {groups,order}=computeGroups();
+  const rows=[['Date','Customer','FB link / name','Item','Cost (THB)','Weight (kg)','Service fee (THB)','Shipping (THB)','Payment fee (THB)','Total (THB)','Total (PHP)','Notes']];
+  let gThb=0,gPhp=0;
+  order.forEach(key=>{
+    const g=groups[key];
+    g.rows.forEach(({it,p})=>{
+      gThb+=p.thb; gPhp+=p.php;
+      rows.push([
+        it.added?new Date(it.added).toLocaleDateString():'',
+        key==='__none__'?'Walk-in':(g.label||'Customer'),
+        it.cust||'',
+        it.name,
+        r2(p.cost), it.weight||0, r2(p.fee), r2(p.ship), r2(p.pay), r2(p.thb), r2(p.php), it.notes||''
+      ]);
+    });
+  });
+  rows.push([]);
+  rows.push(['','','','GRAND TOTAL','','','','','',r2(gThb),r2(gPhp),'']);
+  const csv='﻿'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n');
+  const d=new Date();
+  const stamp=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  download(csv, `pasabuy-orders-${stamp}.csv`, 'text/csv;charset=utf-8;');
+  toast('⬇️ Exported '+items.length+' orders');
+}
+
+/* ---------- backup & restore ---------- */
+function backupData(){
+  const json=JSON.stringify(collectData(),null,2);
+  const d=new Date();
+  const stamp=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  download(json, `pasabuy-backup-${stamp}.json`, 'application/json');
+  toast('⬇️ Backup downloaded — keep it safe');
+}
+function restoreData(input){
+  const file=input.files&&input.files[0]; if(!file){ return; }
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const d=JSON.parse(e.target.result);
+      if(!d || typeof d!=='object' || !('items' in d || 'products' in d)) throw 0;
+      const n=Array.isArray(d.items)?d.items.length:0;
+      const pn=Array.isArray(d.products)?d.products.length:0;
+      if(!confirm(`Restore this backup?\n\nThis REPLACES your current data with ${n} order(s) and ${pn} product(s) from the file.`)){ input.value=''; return; }
+      items=[]; products=[]; editIndex=null; pEditIndex=null;
+      applyData(d);
+      renderTiers(); saveAll(false); render(); renderProducts();
+      toast('✓ Backup restored');
+    }catch(err){ toast('⚠ That is not a valid backup file',true); }
+    input.value='';
+  };
+  reader.readAsText(file);
+}
+
+/* recompute when settings change */
+['fx','defMarkup','perKg','shipKg','payPct'].forEach(id=>{
+  document.addEventListener('input',e=>{ if(e.target.id===id) render(); });
+});
+
+/* =================================================================
+   LIVE COMMENT WATCHER  (integrated with the calculator above)
+   ================================================================= */
+let wCfg = {
+  token:'', mode:'auto', post:'',
+  keywords:'mine, mine po, order, order po, dibs, +1, avail, sold, po ako, sana all, get, take, akin, reserve',
+  replyOn:false, replyAuto:false,
+  replyTpl:'Noted po {name}! ✅ Check your PM for the total & payment. Salamat sa order! 💚',
+  pmOn:false, pmAuto:false,
+  pmTpl:'Hi {name}! 💚 Salamat sa order ({item}). Please send your full name, complete address, and contact number para ma-total namin. Salamat po!',
+  autoAdd:false
+};
+let wActive = '';        // "now showing" product NAME
+let wComments = [];      // detected order comments (feed)
+let wSeenIds = new Set();// comment ids already in the feed
+let wAdded = {};         // comment id -> true (confirmed & pushed to calculator orders)
+let wDismissed = {};     // comment id -> true (marked "not an order")
+let wFilter = 'pending'; // feed view: pending | confirmed | all
+let wWatching = false, wTimer = null, wLive = null, wDemoMode = false;
+const WGRAPH = 'https://graph.facebook.com/v20.0';
+
+function wActiveProd(){ return products.find(p=>p.name===wActive) || null; }
+function wKeywords(){ return wCfg.keywords.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean); }
+
+function wProductMatch(text){
+  const t=(text||'').toLowerCase();
+  for(const p of products){
+    const name=(p.name||'').toLowerCase(); if(!name) continue;
+    if(t.includes(name)) return p;
+    const words=name.split(/\s+/).filter(w=>w.length>=4);
+    if(words.some(w=>t.includes(w))) return p;
+  }
+  return null;
+}
+function wParse(text){
+  const t=(text||'').toLowerCase();
+  const kws=wKeywords();
+  let kw=kws.find(k=> k.length<=3 ? t.includes(k)
+      : new RegExp('(^|[^a-z])'+k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'([^a-z]|$)','i').test(t));
+  const prodByName=wProductMatch(text);
+  if(!kw){
+    if(/\+\s*\d/.test(t)) kw='+qty';
+    else if(prodByName) kw='item';
+    else if(/\b(paid|gcash|maya|bank)\b/.test(t)) kw='paid';
+  }
+  if(!kw) return null;
+  let qty=1;
+  const m=t.match(/(?:x\s*)?(\d{1,3})\s*(?:x|pcs?|pieces?|pc|units?|orders?)\b/)||t.match(/\b(\d{1,3})\s*x\b/)||t.match(/\bx\s*(\d{1,3})\b/)||t.match(/\+\s*(\d{1,3})\b/);
+  if(m) qty=Math.min(99,parseInt(m[1],10))||1;
+  return {qty, keyword:kw, prod: prodByName?prodByName.name:null};
+}
+
+/* --- Graph API --- */
+async function wGet(path,params){
+  const url=new URL(WGRAPH+path);
+  Object.entries(params||{}).forEach(([k,v])=>url.searchParams.set(k,v));
+  url.searchParams.set('access_token', wCfg.token);
+  const r=await fetch(url.toString()); const j=await r.json();
+  if(j.error) throw new Error(j.error.message||'Graph error');
+  return j;
+}
+function wExtractPost(input){
+  if(!input) return ''; const s=input.trim();
+  if(/^\d+_\d+$/.test(s)||/^\d+$/.test(s)) return s;
+  const m=s.match(/\/posts\/(\d+)/)||s.match(/story_fbid=(\d+)/)||s.match(/\/(\d+)\/?$/)||s.match(/fbid=(\d+)/);
+  return m?m[1]:s;
+}
+async function wResolve(){
+  const me=await wGet('/me',{fields:'id'});
+  if(wCfg.mode==='post' && wCfg.post) return {id:wExtractPost(wCfg.post),type:'post'};
+  if(wCfg.mode==='auto' || wCfg.mode==='live'){
+    try{
+      const lv=await wGet('/'+me.id+'/live_videos',{fields:'id,status,title',limit:5});
+      const live=(lv.data||[]).find(v=>v.status==='LIVE');
+      if(live) return {id:live.id,type:'live',title:live.title||'Live'};
+    }catch(e){}
+    if(wCfg.mode==='live') return null;
+  }
+  if(wCfg.post) return {id:wExtractPost(wCfg.post),type:'post'};
+  const feed=await wGet('/'+me.id+'/posts',{fields:'id',limit:1});
+  if(feed.data && feed.data[0]) return {id:feed.data[0].id,type:'post'};
+  return null;
+}
+async function wFetch(){
+  const target=await wResolve();
+  if(!target){ wLive=null; return []; }
+  wLive = target.type==='live' ? {title:target.title} : null;
+  const params={fields:'id,from{name},message,created_time',order:'reverse_chronological',limit:100};
+  if(target.type==='live') params.live_filter='no_filter';
+  const j=await wGet('/'+target.id+'/comments',params);
+  return (j.data||[]).map(c=>({
+    id:c.id,
+    name:(c.from&&c.from.name)?c.from.name:'Facebook user',
+    text:c.message||'',
+    time:c.created_time?new Date(c.created_time).getTime():Date.now()
+  }));
+}
+async function wReply(id,msg){
+  const r=await fetch(WGRAPH+'/'+id+'/comments',{method:'POST',body:new URLSearchParams({message:msg,access_token:wCfg.token})});
+  const j=await r.json(); if(j.error) throw new Error(j.error.message||'Reply failed'); return j;
+}
+async function wPrivate(id,msg){
+  const r=await fetch(WGRAPH+'/'+id+'/private_replies',{method:'POST',body:new URLSearchParams({message:msg,access_token:wCfg.token})});
+  const j=await r.json(); if(j.error) throw new Error(j.error.message||'Message failed'); return j;
+}
+function wTpl(tpl,rec){
+  const item=rec.prod||(wActiveProd()?wActiveProd().name:'your item');
+  return tpl.replace(/\{name\}/g,(rec.name||'').split(' ')[0]).replace(/\{item\}/g,item);
+}
+
+/* --- ingest + add to calculator --- */
+function wIngest(list){
+  let fresh=0;
+  list.slice().sort((a,b)=>a.time-b.time).forEach(c=>{
+    if(wSeenIds.has(c.id)) return; wSeenIds.add(c.id);
+    const order=wParse(c.text); if(!order) return;   // only keep order comments
+    const rec={...c, order, prod: order.prod || (wActiveProd()?wActiveProd().name:null),
+               replied:false, pmSent:false, addedToOrder: !!wAdded[c.id], dismissed: !!wDismissed[c.id]};
+    wComments.push(rec); fresh++;
+    if(!wDemoMode){
+      if(wCfg.replyOn && wCfg.replyAuto) wReply(rec.id,wTpl(wCfg.replyTpl,rec)).then(()=>{rec.replied=true;wRender();}).catch(()=>{});
+      if(wCfg.pmOn && wCfg.pmAuto) wPrivate(rec.id,wTpl(wCfg.pmTpl,rec)).then(()=>{rec.pmSent=true;wRender();}).catch(()=>{});
+      if(wCfg.autoAdd && !wAdded[rec.id] && !wDismissed[rec.id]) wAddOrder(rec,true);
+    }
+  });
+  if(fresh) wRender();
+  return fresh;
+}
+function wAddOrder(rec, silent){
+  if(wAdded[rec.id]){ if(!silent)toast('Already in the order'); return; }
+  const prod = (rec.prod && products.find(p=>p.name===rec.prod)) || wActiveProd();
+  if(!prod){ toast('Pick a "Now showing" product first',true); return; }
+  if(wDemoMode){ rec.addedToOrder=true; wAdded[rec.id]=true; wRender(); toast('(Demo) would add to '+rec.name.split(' ')[0]+"'s order"); return; }
+  const q=Math.max(1, rec.order.qty||1);
+  for(let k=0;k<q;k++){
+    items.push({name:prod.name, cost:prod.cost, weight:prod.weight, markup:prod.markup, cust:rec.name, notes:'FB: '+rec.text, fromFB:true, showBd:false, added:nowISO()});
+  }
+  wAdded[rec.id]=true; rec.addedToOrder=true;
+  saveAll(false); render(); wRender();
+  if(!silent) toast('✓ Added to '+rec.name.split(' ')[0]+"'s order"+(q>1?(' ×'+q):''));
+}
+function wAddOrderId(id){ const r=wComments.find(c=>c.id===id); if(r) wAddOrder(r,false); }
+function wReplyId(id){ const r=wComments.find(c=>c.id===id); if(!r) return;
+  if(wDemoMode){ r.replied=true; wRender(); toast('(Demo) replied'); return; }
+  wReply(r.id,wTpl(wCfg.replyTpl,r)).then(()=>{r.replied=true;wRender();toast('✓ Replied');}).catch(e=>toast('⚠ '+e.message,true)); }
+function wPmId(id){ const r=wComments.find(c=>c.id===id); if(!r) return;
+  if(wDemoMode){ r.pmSent=true; wRender(); toast('(Demo) messaged'); return; }
+  wPrivate(r.id,wTpl(wCfg.pmTpl,r)).then(()=>{r.pmSent=true;wRender();toast('✓ Messaged');}).catch(e=>toast('⚠ '+e.message,true)); }
+
+/* --- render feed + now-showing dropdown --- */
+function wCurrentText(){
+  const el=$('wNowCurrent'); if(!el) return;
+  const ap=wActiveProd();
+  const price = ap ? (' — <span style="color:var(--php);font-weight:700">'+fmtP(priceItem({cost:ap.cost,weight:ap.weight,markup:ap.markup}).php)+'</span>') : '';
+  el.innerHTML = wActive
+    ? `▶ Now showing: <b>${escapeHtml(wActive)}</b>${price} · <span class="link" onclick="wClearNow()">clear</span>`
+    : 'No product selected — search or add one below.';
+}
+let wRecent=[]; try{ wRecent=JSON.parse(localStorage.getItem('pb_recent')||'[]')||[]; }catch(e){}
+function wPushRecent(name){ if(!name) return; wRecent=[name].concat(wRecent.filter(n=>n!==name)).slice(0,10); try{ localStorage.setItem('pb_recent',JSON.stringify(wRecent)); }catch(e){} }
+function wPickIdx(i){ const p=products[i]; if(p) wPick(p.name); }
+function wPick(name){
+  wActive=name; wPushRecent(name); saveAll(false);
+  if($('wSearch')) $('wSearch').value='';
+  wSearchUpdate(); wCurrentText(); toast('Now showing: '+name);
+}
+function wClearNow(){ wActive=''; saveAll(false); wSearchUpdate(); wCurrentText(); toast('Showing: none'); }
+function wSearchUpdate(){
+  const box=$('wSearchResults'); if(!box) return;
+  const q=($('wSearch')?$('wSearch').value:'').trim();
+  const ql=q.toLowerCase();
+  const wide = !!(window.matchMedia && window.matchMedia('(min-width:820px)').matches);
+  let list;
+  if(q){
+    list = products.filter(p=>(p.name||'').toLowerCase().includes(ql)).slice(0,3);   // top 3 matches
+  } else if(wide){
+    const byName={}; products.forEach(p=>{ byName[p.name||'']=p; });
+    list = wRecent.map(n=>byName[n]).filter(Boolean).slice(0,3);                       // latest 3 selected
+    if(!list.length) list = products.slice(0,3);
+  } else {
+    const ap=wActiveProd(); list = ap ? [ap] : products.slice(0,1);                    // mobile: just the 1 selected
+  }
+  let html='';
+  list.forEach(p=>{
+    const idx=products.indexOf(p);
+    const pr=priceItem({cost:p.cost,weight:p.weight,markup:p.markup});
+    const sel = p.name===wActive ? ' sel':'';
+    html += `<div class="w-res${sel}" onclick="wPickIdx(${idx})">
+      <div><div class="nm">${escapeHtml(p.name)}${p.name===wActive?' ▶':''}</div>
+      <div class="mt"><span class="php">${fmtP(pr.php)}</span> · ฿${(p.cost||0).toLocaleString()}${p.markup!=null?' · '+p.markup+'%':''}</div></div>
+      <div class="mt">${p.name===wActive?'showing':'tap to show'}</div></div>`;
+  });
+  const exact = products.some(p=>(p.name||'').toLowerCase()===ql);
+  if(q && !exact){
+    html += `<div class="w-addnew">
+      <div style="font-weight:600;font-size:13px">➕ Add new product: “${escapeHtml(q)}”</div>
+      <div class="row">
+        <input id="wNewCost" type="number" inputmode="decimal" placeholder="Cost ฿">
+        <input id="wNewWeight" type="number" inputmode="decimal" placeholder="Weight kg">
+        <input id="wNewMarkup" type="number" inputmode="decimal" placeholder="Markup %">
+      </div>
+      <button class="btn-add" style="margin-top:8px" onclick="wQuickAdd()">Add &amp; show</button>
+      <div class="hint" style="margin-top:6px">Saved to your Products too. Cost is required. Markup % is optional — leave blank to use your global fee setting.</div>
+    </div>`;
+  }
+  if(!html) html='<div class="hint">No products yet — type a name above to add your first one.</div>';
+  box.innerHTML=html;
+}
+function wQuickAdd(){
+  const q=($('wSearch')?$('wSearch').value:'').trim();
+  if(!q){ toast('Type a product name first',true); return; }
+  const cost=parseFloat(($('wNewCost')||{}).value)||0;
+  const weight=parseFloat(($('wNewWeight')||{}).value)||0;
+  if(cost<=0){ if($('wNewCost'))$('wNewCost').style.borderColor='var(--danger)'; toast('Enter the cost ฿',true); return; }
+  const mkRaw=($('wNewMarkup')||{}).value;
+  const prod={name:q, cost, weight};
+  if(mkRaw!=='' && mkRaw!=null) prod.markup=parseFloat(mkRaw)||0;
+  products.push(prod);
+  wActive=q; wPushRecent(q); saveAll(false); renderProducts();
+  if($('wSearch')) $('wSearch').value='';
+  wSearchUpdate(); wCurrentText(); wRender();
+  toast('✓ Added & now showing: '+q);
+}
+
+function wRender(){
+  wCurrentText();
+  if($('wSearch') && !$('wSearch').value.trim()) wSearchUpdate();
+  const st=$('wStatusLine');
+  if(st){
+    st.className='w-status';
+    if(wDemoMode) st.innerHTML='🧪 <b>Demo mode</b> — sample comments (won\'t touch your real orders).';
+    else if(wWatching){ st.innerHTML = wLive?'<span class="w-live">🔴 LIVE — checking every few seconds</span>':'👀 Watching comments…'; }
+    else st.innerHTML = wCfg.token?'Connected. Tap <b>Start watching</b>.':'Not connected. Open <b>Watcher setup</b> below and add your token.';
+  }
+  const feed=$('wFeed'); if(!feed) return;
+  const all=wComments.slice().sort((a,b)=>b.time-a.time);
+  const pending=all.filter(c=>!c.addedToOrder && !c.dismissed);
+  const confirmed=all.filter(c=>c.addedToOrder);
+  const fb=$('wFilterBar');
+  if(fb){
+    fb.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.getAttribute('data-f')===wFilter));
+    const bp=fb.querySelector('[data-f="pending"]'); if(bp) bp.textContent='🕓 To review'+(pending.length?' ('+pending.length+')':'');
+    const bc=fb.querySelector('[data-f="confirmed"]'); if(bc) bc.textContent='✅ Confirmed'+(confirmed.length?' ('+confirmed.length+')':'');
+  }
+  if($('wCount')) $('wCount').textContent = pending.length+' to review';
+  const list = wFilter==='confirmed'?confirmed : (wFilter==='all'?all : pending);
+  if(!list.length){
+    feed.innerHTML='<div class="empty">'+(wFilter==='confirmed'?'No confirmed orders yet.':wFilter==='all'?'No detections yet.':'Nothing to review right now 🎉')+'</div>';
+    return;
+  }
+  feed.innerHTML=list.map(c=>{
+    const prodTxt=c.prod?('🏷️ '+escapeHtml(c.prod)):'⚠️ no item';
+    const status = c.addedToOrder?'confirmed':(c.dismissed?'dismissed':'pending');
+    const statusTag = c.addedToOrder?'<span class="wtag g">✅ order</span>'
+                    : c.dismissed?'<span class="wtag">✕ dismissed</span>'
+                    : '<span class="wtag a">🕓 to review</span>';
+    const tags=`${statusTag}${c.order.qty>1?`<span class="wtag g">qty ${c.order.qty}</span>`:''}<span class="wtag ${c.prod?'b':'a'}">${prodTxt}</span>`;
+    let actions;
+    if(c.addedToOrder) actions=`<span class="wtag g">✅ in your order</span>`;
+    else if(c.dismissed) actions=`<button class="btn-dismiss" onclick="wUndoDismiss('${c.id}')">↩ Undo</button>`;
+    else actions=`<button class="btn-confirm" onclick="wAddOrderId('${c.id}')">✓ Confirm order</button><button class="btn-dismiss" onclick="wDismiss('${c.id}')">✕ Not an order</button>`;
+    const replyBtn = (wCfg.replyOn && !c.dismissed) ? (c.replied?`<span class="wtag g">✅ replied</span>`:`<button class="btn-ghost" style="width:auto;padding:9px 12px;margin-top:0" onclick="wReplyId('${c.id}')">✉️ Reply</button>`) : '';
+    const pmBtn = (wCfg.pmOn && !c.dismissed) ? (c.pmSent?`<span class="wtag g">💬 messaged</span>`:`<button class="btn-ghost" style="width:auto;padding:9px 12px;margin-top:0" onclick="wPmId('${c.id}')">💬 Message</button>`) : '';
+    return `<div class="item ${status}">
+      <div class="item-top"><div>
+        <div class="item-name">${escapeHtml(c.name)}</div>
+        <div class="item-note">💬 ${escapeHtml(c.text)}</div>
+      </div></div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${tags}</div>
+      <div class="w-actions">${actions}${replyBtn}${pmBtn}</div>
+    </div>`;
+  }).join('');
+}
+function wDismiss(id){ const r=wComments.find(c=>c.id===id); if(r) r.dismissed=true; wDismissed[id]=true; saveAll(false); wRender(); toast('Marked: not an order'); }
+function wUndoDismiss(id){ const r=wComments.find(c=>c.id===id); if(r) r.dismissed=false; delete wDismissed[id]; saveAll(false); wRender(); }
+function wSetFilter(f){ wFilter=f; wRender(); }
+
+/* --- watch loop --- */
+function wSchedule(ms){ if(wWatching){ clearTimeout(wTimer); wTimer=setTimeout(wTick, ms); } }
+async function wTick(){
+  try{
+    if(wDemoMode){ wIngest(wDemoData()); return; }
+    if(!wCfg.token){ toast('Add your token in Watcher setup',true); wStop(); return; }
+    const list=await wFetch(); wIngest(list); wRender();
+    wSchedule(wLive?6000:25000);
+  }catch(e){ toast('⚠ '+e.message,true); wSchedule(wLive?8000:25000); }
+}
+function wStart(){
+  if(!wDemoMode && !wCfg.token){ toast('Add your token in Watcher setup',true); if($('wSetupCard'))$('wSetupCard').classList.remove('collapsed'); return; }
+  wWatching=true; if($('wWatchBtn'))$('wWatchBtn').textContent='⏸ Stop watching'; wTick();
+}
+function wStop(){ wWatching=false; clearTimeout(wTimer); wTimer=null; if($('wWatchBtn'))$('wWatchBtn').textContent='▶ Start watching'; wRender(); }
+function wToggle(){ wWatching?wStop():wStart(); }
+
+/* --- demo --- */
+function wDemoData(){
+  const now=Date.now();
+  return [
+    ['Alinna R.','mine po sana all 😍',1],
+    ['Jhomar dela Cruz','order 2x pm',3],
+    ['Rowena Tan','+3 mine paid na gcash',6],
+    ['Neneng P.','mine po 1',9],
+    ['Divine Grace','get ko po 2',12]
+  ].map((r,i)=>({id:'wdemo_'+i,name:r[0],text:r[1],time:now-r[2]*60000}));
+}
+function wDemo(){
+  wDemoMode=true; wComments=[]; wSeenIds=new Set();
+  if(!wActive && products[0]) wActive=products[0].name;
+  wStop(); wStart(); toast('Demo mode on');
+}
+function wConnect(){
+  wCfg.token=$('wToken').value.trim();
+  if(!wCfg.token){ toast('Paste a token first',true); return; }
+  wDemoMode=false; wComments=[]; wSeenIds=new Set();
+  saveAll(false); wStop(); toast('Saved — tap Start watching'); wRender();
+}
+
+/* --- fill setup inputs from config --- */
+function wSyncSetup(){
+  const s=(id,v)=>{ if($(id)) $(id).value=v; };
+  const c=(id,v)=>{ if($(id)) $(id).checked=v; };
+  s('wToken',wCfg.token); s('wMode',wCfg.mode); s('wPost',wCfg.post);
+  s('wKeywords',wCfg.keywords); s('wReplyTpl',wCfg.replyTpl); s('wPmTpl',wCfg.pmTpl);
+  c('wReplyOn',wCfg.replyOn); c('wReplyAuto',wCfg.replyAuto);
+  c('wPmOn',wCfg.pmOn); c('wPmAuto',wCfg.pmAuto); c('wAutoAdd',wCfg.autoAdd);
+}
+
+/* =================================================================
+   CLOUD SYNC (Supabase) — one live shop across your devices
+   ================================================================= */
+let sb=null, sbChan=null, syncRev=0, syncApplying=false, syncSaveTimer=null;
+let sbCfg={url:'',key:'',shop:''};
+try{ const c=JSON.parse(localStorage.getItem('pb_sync')||'null'); if(c&&c.url) sbCfg=c; }catch(e){}
+const SYNC_ID=(function(){ try{ let x=localStorage.getItem('pb_client'); if(!x){ x='c'+Math.random().toString(36).slice(2)+Date.now().toString(36); localStorage.setItem('pb_client',x);} return x; }catch(e){ return 'c'+Math.random().toString(36).slice(2); } })();
+
+function syncStatus(msg){ const el=$('syncStatus'); if(el) el.textContent=msg||''; }
+function syncBadge(on){ const b=$('syncBadge'); if(b) b.textContent=on?'on':'off'; }
+function syncFillFields(){ if($('sbUrl'))$('sbUrl').value=sbCfg.url||''; if($('sbKey'))$('sbKey').value=sbCfg.key||''; if($('sbShop'))$('sbShop').value=sbCfg.shop||''; }
+function cloudData(){ const d=collectData(); if(d.wCfg){ d.wCfg=Object.assign({},d.wCfg); delete d.wCfg.token; } return d; }  // never sync the FB token
+function applyRemote(remote){
+  syncApplying=true;
+  const localToken=(typeof wCfg==='object'&&wCfg)?wCfg.token:'';
+  applyData(remote);
+  if(localToken && wCfg) wCfg.token=localToken;   // keep this device's own token
+  renderTiers(); render(); renderProducts(); if(typeof wSyncSetup==='function') wSyncSetup(); if(typeof wRender==='function') wRender();
+  try{ localStorage.setItem(LS_KEY,JSON.stringify(collectData())); }catch(e){}
+  syncApplying=false;
+}
+function syncConnect(){
+  sbCfg={url:($('sbUrl').value||'').trim(), key:($('sbKey').value||'').trim(), shop:($('sbShop').value||'').trim()};
+  if(!sbCfg.url||!sbCfg.key||!sbCfg.shop){ toast('Fill in URL, key, and shop code',true); return; }
+  try{ localStorage.setItem('pb_sync',JSON.stringify(sbCfg)); }catch(e){}
+  syncInit(true);
+}
+function syncDisconnect(){
+  try{ if(sbChan&&sb) sb.removeChannel(sbChan); }catch(e){}
+  sb=null; sbChan=null;
+  try{ localStorage.removeItem('pb_sync'); }catch(e){}
+  syncBadge(false); syncStatus('Sync is off.'); toast('Cloud sync off');
+}
+async function syncInit(fresh){
+  if(!sbCfg.url||!sbCfg.key||!sbCfg.shop) return;
+  if(!(window.supabase&&window.supabase.createClient)){ syncStatus('⚠ Could not load the sync library (check your connection).'); return; }
+  try{
+    sb=window.supabase.createClient(sbCfg.url,sbCfg.key);
+    syncStatus('Connecting…');
+    const {data,error}=await sb.from('shops').select('data,rev').eq('code',sbCfg.shop).maybeSingle();
+    if(error) throw error;
+    if(data&&data.data){
+      applyRemote(data.data);
+      syncRev=data.rev||0;
+      syncStatus('Synced ✓ — this device now matches the cloud.');
+    }else{
+      syncRev=1;
+      const {error:e2}=await sb.from('shops').upsert({code:sbCfg.shop,data:cloudData(),rev:syncRev,client:SYNC_ID,updated_at:new Date().toISOString()});
+      if(e2) throw e2;
+      syncStatus('Cloud copy created ✓ from this device.');
+    }
+    syncBadge(true);
+    if(sbChan){ try{ sb.removeChannel(sbChan); }catch(e){} }
+    sbChan=sb.channel('shop-'+sbCfg.shop)
+      .on('postgres_changes',{event:'*',schema:'public',table:'shops',filter:'code=eq.'+sbCfg.shop},payload=>{
+        const row=payload.new; if(!row||!row.data) return;
+        if(row.client===SYNC_ID) return;                 // ignore our own writes
+        if((row.rev||0)<=syncRev) return;                // ignore older/equal
+        applyRemote(row.data); syncRev=row.rev||syncRev;
+        syncStatus('↻ Updated from another device (rev '+syncRev+').');
+        toast('↻ Synced from another device');
+      })
+      .subscribe();
+    if(fresh) toast('Cloud sync on ✓');
+  }catch(e){ syncStatus('⚠ '+(e.message||e)); syncBadge(false); sb=null; }
+}
+function syncPush(){
+  if(!sb || syncApplying) return;
+  clearTimeout(syncSaveTimer);
+  syncSaveTimer=setTimeout(async ()=>{
+    try{
+      syncRev++;
+      const {error}=await sb.from('shops').upsert({code:sbCfg.shop,data:cloudData(),rev:syncRev,client:SYNC_ID,updated_at:new Date().toISOString()});
+      if(error) throw error;
+      syncStatus('Saved to cloud ✓ (rev '+syncRev+').');
+    }catch(e){ syncStatus('⚠ Save failed: '+(e.message||e)); }
+  },800);
+}
+function syncCopySetup(){
+  if(!sbCfg.url||!sbCfg.key||!sbCfg.shop){ toast('Connect first',true); return; }
+  copyText(btoa(JSON.stringify(sbCfg)));
+  toast('Setup copied — paste it on your other device');
+}
+function syncPasteSetup(){
+  const v=($('sbPaste').value||'').trim(); if(!v){ toast('Paste the setup code first',true); return; }
+  try{
+    const c=JSON.parse(atob(v)); if(!c.url||!c.key||!c.shop) throw 0;
+    sbCfg=c; syncFillFields();
+    try{ localStorage.setItem('pb_sync',JSON.stringify(sbCfg)); }catch(e){}
+    if($('sbPaste')) $('sbPaste').value='';
+    syncInit(true);
+  }catch(e){ toast('That setup code is not valid',true); }
+}
+
+/* init */
+loadAll();
+renderTiers();
+render();
+renderProducts();
+wSyncSetup();
+syncFillFields();
+if(sbCfg.url&&sbCfg.key&&sbCfg.shop){ syncInit(false); }
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
