@@ -41,6 +41,14 @@
   .prod-card.collapsed .prod-body{display:none}
   .prod-sub{display:block;font-size:11.5px;color:#7dd3fc;font-weight:600;margin-top:4px}
   .prod-custs{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+  /* product image */
+  .prod-thumb{width:46px;height:46px;border-radius:9px;object-fit:cover;flex:none;background:var(--card2);border:1px solid var(--line)}
+  .cust-name.has-thumb{display:flex;align-items:center;gap:10px}
+  .cust-name.has-thumb .cust-name-txt{min-width:0}
+  .pimg-wrap{display:flex;align-items:center;gap:12px;margin-top:6px}
+  .pimg-preview{width:64px;height:64px;border-radius:10px;object-fit:cover;background:var(--card2);border:1px solid var(--line);display:none}
+  .pimg-preview.show{display:block}
+  .pimg-btns{display:flex;flex-direction:column;gap:6px}
   .pc-title{font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:6px}
   .pc-row{font-size:12.5px;color:#cbd5e1;padding:3px 0;display:flex;justify-content:space-between;gap:10px}
   .pc-row a{color:var(--accent);text-decoration:none}
@@ -206,6 +214,7 @@
   <button class="tab active" id="tabOrders" onclick="showPage('orders')">🧾 Orders</button>
   <button class="tab" id="tabProducts" onclick="showPage('products')">📦 Products</button>
   <button class="tab" id="tabLive" onclick="showPage('live')">📡 Live</button>
+  <button class="tab" id="tabReports" onclick="showPage('reports')">📊 Reports</button>
   <button class="tab" id="tabSettings" onclick="showPage('settings')">⚙️ Settings</button>
 </div>
 
@@ -331,13 +340,17 @@
     <div class="row">
       <div>
         <label>Cost you paid — ฿</label>
-        <input type="number" id="iCost" placeholder="0" step="1" inputmode="decimal">
+        <input type="number" id="iCost" placeholder="0" step="1" inputmode="decimal" oninput="updateIPreview()">
       </div>
       <div>
         <label>Weight — kg</label>
-        <input type="number" id="iWeight" placeholder="0" step="0.1" inputmode="decimal">
+        <input type="number" id="iWeight" placeholder="0" step="0.1" inputmode="decimal" oninput="updateIPreview()">
       </div>
     </div>
+
+    <label>Markup % — optional (blank = your global fee)</label>
+    <input type="number" id="iMarkup" placeholder="use global" step="1" inputmode="decimal" oninput="updateIPreview()">
+    <div id="iPreview" class="hint" style="margin-top:8px;font-size:13.5px;min-height:18px"></div>
 
     <label>📝 Notes (optional)</label>
     <input type="text" id="iNotes" placeholder="e.g. size M, black, paid ฿500 deposit">
@@ -369,6 +382,7 @@
     <div class="copy-note">Each customer has their own 📋 Copy quote button above. This copies the whole day's order.</div>
     <button class="btn-primary" style="margin-top:12px" onclick="copyAll(event)">📋 Copy full order (all customers)</button>
     <button class="btn-primary" style="margin-top:10px;background:var(--accent2)" onclick="exportCSV()">⬇️ Export to Excel (.csv)</button>
+    <button class="btn-primary" style="margin-top:10px;background:#8b5cf6;color:#fff" onclick="closeBatch()">📦 Close &amp; save to history</button>
     <button class="btn-ghost" style="margin-top:10px" onclick="clearAll()">Clear order</button>
   </div>
   </div><!-- /page-orders -->
@@ -382,23 +396,33 @@
       <div class="row">
         <div>
           <label>Cost you paid — ฿</label>
-          <input type="number" id="pCost" placeholder="0" step="1" inputmode="decimal">
+          <input type="number" id="pCost" placeholder="0" step="1" inputmode="decimal" oninput="updatePPreview()">
         </div>
         <div>
           <label>Weight — kg</label>
-          <input type="number" id="pWeight" placeholder="0" step="0.1" inputmode="decimal">
+          <input type="number" id="pWeight" placeholder="0" step="0.1" inputmode="decimal" oninput="updatePPreview()">
         </div>
       </div>
       <div class="row">
         <div>
           <label>Markup % — optional</label>
-          <input type="number" id="pMarkup" placeholder="use global" step="1" inputmode="decimal">
+          <input type="number" id="pMarkup" placeholder="use global" step="1" inputmode="decimal" oninput="updatePPreview()">
         </div>
         <div>
           <label>Max qty — optional</label>
           <input type="number" id="pMax" placeholder="no limit" step="1" inputmode="numeric">
         </div>
       </div>
+      <label style="margin-top:12px">📷 Photo — optional</label>
+      <input type="file" id="pImgFile" accept="image/*" style="display:none" onchange="pOnImagePick(this)">
+      <div class="pimg-wrap">
+        <img id="pImgPreview" class="pimg-preview" alt="">
+        <div class="pimg-btns">
+          <button type="button" class="btn-ghost" id="pImgBtn" onclick="$('pImgFile').click()">Choose photo</button>
+          <button type="button" class="btn-ghost" id="pImgClear" style="display:none" onclick="pClearImage()">Remove photo</button>
+        </div>
+      </div>
+      <div id="pPreview" class="hint" style="margin-top:8px;font-size:13.5px;min-height:18px"></div>
       <button class="btn-add" id="pAddBtn" onclick="addProduct()">Save product</button>
       <button class="btn-ghost" id="pCancelBtn" style="display:none;margin-top:8px" onclick="cancelProductEdit()">Cancel edit</button>
     </div>
@@ -479,6 +503,24 @@
     </div>
   </div>
 
+  <!-- REPORTS PAGE -->
+  <div id="page-reports" style="display:none">
+    <div class="card">
+      <h2>📊 Sales report</h2>
+      <label>Period</label>
+      <select id="reportPeriod" onchange="renderReports()">
+        <option value="all">All time</option>
+        <option value="month">This month</option>
+        <option value="7">Last 7 days</option>
+        <option value="today">Today</option>
+      </select>
+      <div id="reportBody"></div>
+      <button class="btn-primary" style="margin-top:14px;background:var(--accent2)" onclick="exportReport()">⬇️ Export report (.csv)</button>
+      <button class="btn-ghost" style="margin-top:10px" onclick="clearHistory()">Clear all history</button>
+      <div class="hint" style="margin-top:8px">History is added when you tap <b>📦 Close &amp; save to history</b> on the Orders page after a batch or day. Syncs across your devices.</div>
+    </div>
+  </div>
+
   <footer>💾 Everything auto-saves on your phone · edit rates anytime in Settings ⚙️</footer>
 </div>
 <div class="toast" id="toast"></div>
@@ -503,9 +545,11 @@ let SYNC_TOKEN = CENTRAL_ON && !!CENTRAL.syncToken;
 
 /* ---------- state ---------- */
 let items = [];
+let sales = [];   // archived sales history (for Reports)
 let editIndex = null;
 let products = [];
 let pEditIndex = null;
+let pImg = '';   // current product photo (data URL) being added/edited
 let page = 'orders';
 let openCust = new Set();
 let tiers = [
@@ -589,19 +633,22 @@ function addItem(){
   $('iCost').style.borderColor='';
   const editing = editIndex!==null;
   const existing = products.find(p=>(p.name||'').toLowerCase()===name.toLowerCase());
+  const mkRaw=$('iMarkup')?$('iMarkup').value:'';
   const data={name,cost,weight,cust:$('iCust').value.trim(),notes:$('iNotes').value.trim()};
-  if(existing && existing.markup!=null) data.markup=existing.markup;   // carry the product's custom markup
+  if(mkRaw!=='' && mkRaw!=null) data.markup=parseFloat(mkRaw)||0;                 // typed markup wins
+  else if(existing && existing.markup!=null) data.markup=existing.markup;         // else carry the product's markup
   if(editing){
     items[editIndex]={...items[editIndex],...data};
     stopEdit();
     $('iCust').value='';
   } else {
     items.push({...data,showBd:false,added:nowISO()});
-    if(!existing && cost>0){ products.push({name,cost,weight}); }   // new item → also save it as a product so it syncs
+    if(!existing && cost>0){ const np={name,cost,weight}; if(data.markup!=null) np.markup=data.markup; products.push(np); }   // new item → also save as a product (syncs)
     // keep iCust filled for fast multi-item entry
   }
-  $('iName').value=''; $('iCost').value=''; $('iWeight').value=''; $('iNotes').value='';
+  $('iName').value=''; $('iCost').value=''; $('iWeight').value=''; $('iNotes').value=''; if($('iMarkup'))$('iMarkup').value='';
   const inr=$('iNameResults'); if(inr) inr.innerHTML='';
+  updateIPreview();
   custHintUpdate();
   $('iName').focus();
   render();
@@ -612,10 +659,10 @@ function addItem(){
 function editItem(i){
   const it=items[i];
   $('iName').value=it.name; $('iCost').value=it.cost; $('iWeight').value=it.weight||'';
-  $('iCust').value=it.cust||''; $('iNotes').value=it.notes||'';
+  $('iCust').value=it.cust||''; $('iNotes').value=it.notes||''; if($('iMarkup'))$('iMarkup').value=(it.markup!=null?it.markup:'');
   editIndex=i;
   $('addBtn').textContent='💾 Update item'; $('cancelBtn').style.display='block';
-  methodDesc(); custHintUpdate();
+  methodDesc(); custHintUpdate(); updateIPreview();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function stopEdit(){
@@ -624,17 +671,28 @@ function stopEdit(){
 }
 function cancelEdit(){
   stopEdit();
-  $('iName').value=''; $('iCost').value=''; $('iWeight').value=''; $('iCust').value=''; $('iNotes').value='';
+  $('iName').value=''; $('iCost').value=''; $('iWeight').value=''; $('iCust').value=''; $('iNotes').value=''; if($('iMarkup'))$('iMarkup').value='';
   const inr=$('iNameResults'); if(inr) inr.innerHTML='';
+  updateIPreview();
   custHintUpdate();
 }
 /* Orders "Add item" — search products like the Live picker */
 function orderPick(idx){
   const p=products[idx]; if(!p) return;
   $('iName').value=p.name; $('iCost').value=(p.cost!=null?p.cost:''); $('iWeight').value=(p.weight!=null?p.weight:'');
+  if($('iMarkup')) $('iMarkup').value=(p.markup!=null?p.markup:'');
   const box=$('iNameResults'); if(box) box.innerHTML='';
-  methodDesc(); $('iCost').focus();
+  methodDesc(); updateIPreview(); $('iCost').focus();
 }
+/* live price previews while typing */
+function previewHTML(cost,weight,markup){
+  if(!(cost>0)) return '';
+  const p=priceItem({cost:cost,weight:weight,markup:(markup!==''&&markup!=null)?markup:null});
+  return '≈ sells at <b style="color:var(--php)">'+fmtP(p.php)+'</b> <span style="color:var(--muted)">('+fmtT(p.thb)+' · '+p.feeLabel+')</span>';
+}
+function updateIPreview(){ const el=$('iPreview'); if(el) el.innerHTML=previewHTML(num('iCost'),num('iWeight'),$('iMarkup')?$('iMarkup').value:''); }
+function updatePPreview(){ const el=$('pPreview'); if(el) el.innerHTML=previewHTML(parseFloat($('pCost').value)||0, parseFloat($('pWeight').value)||0, $('pMarkup')?$('pMarkup').value:''); }
+function wPreview(){ const el=$('wNewPreview'); if(el) el.innerHTML=previewHTML(parseFloat(($('wNewCost')||{}).value)||0, parseFloat(($('wNewWeight')||{}).value)||0, ($('wNewMarkup')||{}).value); }
 function orderSearchUpdate(){
   const box=$('iNameResults'); if(!box) return;
   const q=($('iName')?$('iName').value:'').trim(); const ql=q.toLowerCase();
@@ -668,6 +726,69 @@ function toggleCust(gi, el){
   if(collapsed) openCust.delete(key); else openCust.add(key);
 }
 function clearAll(){ items=[]; cancelEdit(); render(); }
+
+/* ---------- Reports / history ---------- */
+function closeBatch(){
+  if(!items.length){ toast('No orders to close',true); return; }
+  if(!confirm('Save these '+items.length+' item(s) to Reports history and clear the current order?')) return;
+  const t=nowISO();
+  items.forEach(it=>{
+    const p=priceItem(it);
+    sales.push({ t, cust:(it.cust||'').trim(), name:it.name, cost:p.cost, weight:it.weight||0, fee:p.fee, ship:p.ship, pay:p.pay, thb:p.thb, php:p.php });
+  });
+  items=[]; cancelEdit();
+  saveAll(false); render(); renderReports();
+  toast('✓ Saved '+ 'to history');
+}
+function reportStart(sel){
+  const now=new Date();
+  if(sel==='today') return new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+  if(sel==='7') return now.getTime()-7*86400000;
+  if(sel==='month') return new Date(now.getFullYear(),now.getMonth(),1).getTime();
+  return 0;
+}
+function reportRows(){
+  const sel=$('reportPeriod')?$('reportPeriod').value:'all';
+  const start=reportStart(sel);
+  return sales.filter(s=>(Date.parse(s.t)||0)>=start);
+}
+function renderReports(){
+  const box=$('reportBody'); if(!box) return;
+  const rows=reportRows();
+  let totalPhp=0; const byCust={};
+  rows.forEach(s=>{
+    totalPhp+=s.php;
+    const key=(s.cust||'').trim()||'🚶 Walk-in';
+    if(!byCust[key]) byCust[key]={n:0,php:0};
+    byCust[key].n++; byCust[key].php+=s.php;
+  });
+  const custs=Object.entries(byCust).sort((a,b)=>b[1].php-a[1].php);
+  const kpis=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:12px 0">
+    <div class="card" style="margin:0;text-align:center;padding:12px"><div style="font-size:20px;font-weight:800;color:var(--php)">${fmtP(totalPhp)}</div><div style="font-size:11px;color:var(--muted)">Total sales</div></div>
+    <div class="card" style="margin:0;text-align:center;padding:12px"><div style="font-size:20px;font-weight:800">${rows.length}</div><div style="font-size:11px;color:var(--muted)">Items sold</div></div>
+    <div class="card" style="margin:0;text-align:center;padding:12px"><div style="font-size:20px;font-weight:800">${custs.length}</div><div style="font-size:11px;color:var(--muted)">Customers</div></div>
+  </div>`;
+  const list = custs.length
+    ? custs.map(([k,v])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)"><div><div style="font-weight:600">${escapeHtml(k)}</div><div style="font-size:11px;color:var(--muted)">${v.n} item${v.n>1?'s':''}</div></div><div style="color:var(--php);font-weight:800;font-size:16px">${fmtP(v.php)}</div></div>`).join('')
+    : '<div class="empty">No sales in this period yet.<br>Finish a batch on the Orders page and tap “📦 Close &amp; save to history”.</div>';
+  box.innerHTML = kpis + '<div class="pc-title" style="margin-top:6px">By customer (highest first)</div>' + list;
+}
+function exportReport(){
+  const rows=reportRows();
+  if(!rows.length){ toast('No sales to export',true); return; }
+  const out=[['Date','Customer','Item','Cost (THB)','Total (THB)','Total (PHP)']];
+  let g=0;
+  rows.forEach(s=>{ g+=s.php; out.push([ s.t?new Date(s.t).toLocaleDateString():'', s.cust||'Walk-in', s.name, r2(s.cost), r2(s.thb), r2(s.php) ]); });
+  out.push([]); out.push(['','','','','GRAND TOTAL (PHP)', r2(g)]);
+  const csv='﻿'+out.map(r=>r.map(csvCell).join(',')).join('\r\n');
+  download(csv,'pasabuy-report.csv','text/csv;charset=utf-8;');
+  toast('⬇️ Report exported');
+}
+function clearHistory(){
+  if(!sales.length){ toast('History is empty'); return; }
+  if(!confirm('Delete ALL saved sales history? This cannot be undone.')) return;
+  sales=[]; saveAll(false); renderReports(); toast('History cleared');
+}
 function clearSearch(){ $('search').value=''; render(); }
 function showTypedCustomer(){
   $('search').value=$('iCust').value.trim();
@@ -692,18 +813,50 @@ function showPage(pg){
   $('page-products').style.display = pg==='products'?'block':'none';
   $('page-live').style.display     = pg==='live'?'block':'none';
   $('page-settings').style.display = pg==='settings'?'block':'none';
+  $('page-reports').style.display  = pg==='reports'?'block':'none';
   $('tabOrders').classList.toggle('active', pg==='orders');
   $('tabProducts').classList.toggle('active', pg==='products');
   $('tabLive').classList.toggle('active', pg==='live');
   $('tabSettings').classList.toggle('active', pg==='settings');
+  $('tabReports').classList.toggle('active', pg==='reports');
   const wrap=document.querySelector('.wrap');
   if(wrap){ wrap.classList.toggle('live-wide', pg==='live'); wrap.classList.toggle('orders-wide', pg==='orders'); }
   if(pg==='orders') render();
   else if(pg==='products') renderProducts();
   else if(pg==='settings'){ syncFillFields(); methodDesc(); }
+  else if(pg==='reports'){ renderReports(); }
   else { wSyncSetup(); wRender(); }
   window.scrollTo({top:0});
 }
+
+/* ---------- product photo ---------- */
+// Downscale to a small JPEG data URL so it stays light in localStorage + cloud sync.
+function pOnImagePick(input){
+  const f=input.files&&input.files[0]; if(!f) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const MAX=480; let {width:w,height:h}=img;
+      if(w>h){ if(w>MAX){ h=Math.round(h*MAX/w); w=MAX; } }
+      else{ if(h>MAX){ w=Math.round(w*MAX/h); h=MAX; } }
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      pImg=cv.toDataURL('image/jpeg',0.72);
+      pShowImage();
+    };
+    img.onerror=()=>toast('Could not read that image',true);
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(f);
+  input.value='';   // allow re-picking the same file
+}
+function pShowImage(){
+  const pv=$('pImgPreview'), clr=$('pImgClear'), btn=$('pImgBtn');
+  if(pImg){ pv.src=pImg; pv.classList.add('show'); clr.style.display='block'; if(btn) btn.textContent='Change photo'; }
+  else{ pv.src=''; pv.classList.remove('show'); clr.style.display='none'; if(btn) btn.textContent='Choose photo'; }
+}
+function pClearImage(){ pImg=''; pShowImage(); }
 
 /* ---------- products ---------- */
 function addProduct(){
@@ -717,9 +870,10 @@ function addProduct(){
   const prod={name,cost,weight};
   if(mkRaw!=='' && mkRaw!=null) prod.markup=parseFloat(mkRaw)||0;
   if(mxRaw!=='' && mxRaw!=null) prod.max=parseInt(mxRaw,10)||0;
+  if(pImg) prod.img=pImg;
   if(pEditIndex!==null){ products[pEditIndex]=prod; stopProductEdit(); }
   else products.push(prod);
-  $('pName').value=''; $('pCost').value=''; $('pWeight').value=''; if($('pMarkup'))$('pMarkup').value=''; if($('pMax'))$('pMax').value='';
+  $('pName').value=''; $('pCost').value=''; $('pWeight').value=''; if($('pMarkup'))$('pMarkup').value=''; if($('pMax'))$('pMax').value=''; pClearImage();
   saveAll(false); renderProducts();
   toast('✓ Product saved');
 }
@@ -728,11 +882,12 @@ function editProduct(i){
   $('pName').value=pr.name; $('pCost').value=pr.cost; $('pWeight').value=pr.weight||'';
   if($('pMarkup')) $('pMarkup').value=(pr.markup!=null?pr.markup:'');
   if($('pMax')) $('pMax').value=(pr.max!=null?pr.max:'');
+  pImg=pr.img||''; pShowImage();
   pEditIndex=i; $('pAddBtn').textContent='💾 Update product'; $('pCancelBtn').style.display='block';
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function stopProductEdit(){ pEditIndex=null; $('pAddBtn').textContent='Save product'; $('pCancelBtn').style.display='none'; }
-function cancelProductEdit(){ stopProductEdit(); $('pName').value=''; $('pCost').value=''; $('pWeight').value=''; if($('pMarkup'))$('pMarkup').value=''; if($('pMax'))$('pMax').value=''; }
+function cancelProductEdit(){ stopProductEdit(); $('pName').value=''; $('pCost').value=''; $('pWeight').value=''; if($('pMarkup'))$('pMarkup').value=''; if($('pMax'))$('pMax').value=''; pClearImage(); }
 function delProduct(i){ if(pEditIndex===i) cancelProductEdit(); products.splice(i,1); saveAll(false); renderProducts(); toast('🗑️ Product removed'); }
 function orderProduct(i){
   const pr=products[i];
@@ -767,8 +922,8 @@ function renderProducts(){
     card.className='cust-group prod-card collapsed';
     card.innerHTML=
       `<div class="cust-head prod-head" onclick="this.parentNode.classList.toggle('collapsed')">
-         <div class="cust-name">📦 ${escapeHtml(pr.name)}<span class="cust-count">฿${pr.cost.toLocaleString()} · ${pr.weight||0}kg${pr.markup!=null?' · '+pr.markup+'% markup':''}${pr.max!=null&&pr.max!==''?' · max '+pr.max+' ('+(remainOf(pr))+' left)':''}</span>
-           <span class="prod-sub">🧑‍🤝‍🧑 ${orders.length} ordered${orders.length?` · ${fmtP(pTotalPhp)}`:''}</span>
+         <div class="cust-name${pr.img?' has-thumb':''}">${pr.img?`<img class="prod-thumb" src="${pr.img}" alt="">`:''}<span class="cust-name-txt">📦 ${escapeHtml(pr.name)}<span class="cust-count">฿${pr.cost.toLocaleString()} · ${pr.weight||0}kg${pr.markup!=null?' · '+pr.markup+'% markup':''}${pr.max!=null&&pr.max!==''?' · max '+pr.max+' ('+(remainOf(pr))+' left)':''}</span>
+           <span class="prod-sub">🧑‍🤝‍🧑 ${orders.length} ordered${orders.length?` · ${fmtP(pTotalPhp)}`:''}</span></span>
          </div>
          <div style="display:flex;align-items:center;gap:8px;flex:none">
            <div class="cust-total">${fmtP(p.php)}<span>sells at</span></div>
@@ -920,7 +1075,7 @@ function collectData(){
     shipKg:$('shipKg').value,payPct:$('payPct').value,
     useShip:$('useShip').checked,usePay:$('usePay').checked,
     feeMethod:$('feeMethod').value,
-    fbPage:$('fbPage').value,tiers,items,products,
+    fbPage:$('fbPage').value,tiers,items,products,sales,
     wCfg, wActive, wAdded, wDismissed
   };
 }
@@ -949,6 +1104,7 @@ function applyData(d){
   if(Array.isArray(d.tiers)&&d.tiers.length)tiers=d.tiers;
   if(Array.isArray(d.items))items=d.items;
   if(Array.isArray(d.products))products=d.products;
+  if(Array.isArray(d.sales))sales=d.sales;
   if(d.wCfg && typeof d.wCfg==='object') wCfg=Object.assign(wCfg,d.wCfg);
   if(typeof d.wActive==='string') wActive=d.wActive;
   if(d.wAdded && typeof d.wAdded==='object') wAdded=d.wAdded;
@@ -1307,11 +1463,12 @@ function wSearchUpdate(){
     html += `<div class="w-addnew">
       <div style="font-weight:600;font-size:13px">➕ Add new product: “${escapeHtml(q)}”</div>
       <div class="row">
-        <input id="wNewCost" type="number" inputmode="decimal" placeholder="Cost ฿">
-        <input id="wNewWeight" type="number" inputmode="decimal" placeholder="Weight kg">
-        <input id="wNewMarkup" type="number" inputmode="decimal" placeholder="Markup %">
+        <input id="wNewCost" type="number" inputmode="decimal" placeholder="Cost ฿" oninput="wPreview()">
+        <input id="wNewWeight" type="number" inputmode="decimal" placeholder="Weight kg" oninput="wPreview()">
+        <input id="wNewMarkup" type="number" inputmode="decimal" placeholder="Markup %" oninput="wPreview()">
         <input id="wNewMax" type="number" inputmode="numeric" placeholder="Max qty">
       </div>
+      <div id="wNewPreview" class="hint" style="margin-top:6px"></div>
       <button class="btn-add" style="margin-top:8px" onclick="wQuickAdd()">Add &amp; show</button>
       <div class="hint" style="margin-top:6px">Saved to your Products too. Cost is required. Markup % and Max qty are optional.</div>
     </div>`;
