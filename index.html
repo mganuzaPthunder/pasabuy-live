@@ -968,21 +968,21 @@ function orderProduct(i){
   const ci=$('pc_'+i); if(ci) ci.focus();
   toast(cust?`✓ Added to ${cust}'s order`:'✓ Added to orders (walk-in)');
 }
-// Price breakdown for a product card: conversion → markup → profit
+// Price breakdown for a product card: conversion → markup → suggested price → selling price → profit
 function prodBreakdownHTML(pr){
   const fx=num('fx');
-  const p=priceItem({cost:pr.cost,weight:pr.weight,markup:pr.markup,sellPhp:pr.sellPhp});
+  const auto=priceItem({cost:pr.cost,weight:pr.weight,markup:pr.markup});   // suggested price (ignore manual override)
+  const hasManual = (pr.sellPhp!=null && pr.sellPhp!=='' && parseFloat(pr.sellPhp)>0);
+  const sellPhp = hasManual ? parseFloat(pr.sellPhp) : auto.php;
+  const profit = sellPhp - auto.costPhp;
   const rows=[];
-  rows.push(`<div><span>💱 Conversion</span><span>฿${Number(pr.cost).toLocaleString()} × ${fx} = ${fmtP(p.costPhp)}</span></div>`);
-  if(p.manual){
-    rows.push(`<div><span>💰 Sell price (manual)</span><span>${fmtP(p.php)}</span></div>`);
-  } else {
-    rows.push(`<div><span>📈 ${p.feeLabel.replace('Custom','Markup')}</span><span>+${fmtP(p.fee*fx)}</span></div>`);
-    if(p.ship) rows.push(`<div><span>🚚 Shipping</span><span>+${fmtP(p.ship*fx)}</span></div>`);
-    if(p.pay)  rows.push(`<div><span>💳 Payment fee</span><span>+${fmtP(p.pay*fx)}</span></div>`);
-    rows.push(`<div class="b-total"><span>Sells at</span><span>${fmtP(p.php)}</span></div>`);
-  }
-  rows.push(`<div><span>💰 Profit</span><span style="color:${p.profitPhp>=0?'var(--accent2)':'var(--danger)'};font-weight:700">${fmtP(p.profitPhp)}</span></div>`);
+  rows.push(`<div><span>💱 Conversion</span><span>฿${Number(pr.cost).toLocaleString()} × ${fx} = ${fmtP(auto.costPhp)}</span></div>`);
+  rows.push(`<div><span>📈 ${auto.feeLabel.replace('Custom','Markup')}</span><span>+${fmtP(auto.fee*fx)}</span></div>`);
+  if(auto.ship) rows.push(`<div><span>🚚 Shipping</span><span>+${fmtP(auto.ship*fx)}</span></div>`);
+  if(auto.pay)  rows.push(`<div><span>💳 Payment fee</span><span>+${fmtP(auto.pay*fx)}</span></div>`);
+  rows.push(`<div class="b-total"><span>${hasManual?'Suggested price':'Sells at'}</span><span>${fmtP(auto.php)}</span></div>`);
+  if(hasManual) rows.push(`<div class="b-total"><span>💰 Selling price</span><span>${fmtP(sellPhp)}</span></div>`);
+  rows.push(`<div><span>💰 Profit</span><span style="color:${profit>=0?'var(--accent2)':'var(--danger)'};font-weight:700">${fmtP(profit)}</span></div>`);
   return `<div class="breakdown show" style="margin-top:0;padding-top:0;border-top:none;margin-bottom:12px">${rows.join('')}</div>`;
 }
 function renderProducts(){
