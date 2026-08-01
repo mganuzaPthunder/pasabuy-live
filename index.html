@@ -343,8 +343,8 @@
         <input type="number" id="iCost" placeholder="0" step="1" inputmode="decimal" oninput="updateIPreview()">
       </div>
       <div>
-        <label>Weight — kg</label>
-        <input type="number" id="iWeight" placeholder="0" step="0.1" inputmode="decimal" oninput="updateIPreview()">
+        <label>Qty</label>
+        <input type="number" id="iQty" placeholder="1" step="1" min="1" value="1" inputmode="numeric" oninput="updateIPreview()">
       </div>
     </div>
 
@@ -608,6 +608,7 @@ function methodDesc(){
 /* ---------- core pricing ---------- */
 function priceItem(it){
   const cost=it.cost, w=it.weight;
+  const qty=Math.max(1, parseInt(it.qty,10)||1);
   let fee=0, feeLabel='';
   if(it.markup!=null && it.markup!==''){
     const mk=parseFloat(it.markup)||0; fee=cost*mk/100; feeLabel=`Custom ${mk}%`;
@@ -622,19 +623,22 @@ function priceItem(it){
   const base = cost + fee + ship;
   const pay = ($('usePay').checked ? base*num('payPct')/100 : 0);
   const thb = base + pay;
-  return {cost,fee,feeLabel,ship,pay,thb,php:thb*num('fx')};
+  // qty scales the whole line; unit* values kept for display
+  return {cost:cost*qty, fee:fee*qty, feeLabel, ship:ship*qty, pay:pay*qty, thb:thb*qty, php:thb*qty*num('fx'), qty, unitCost:cost, unitThb:thb};
 }
 
 /* ---------- add / remove items ---------- */
 function addItem(){
   const name=$('iName').value.trim()||'Item';
-  const cost=num('iCost'), weight=num('iWeight');
+  const cost=num('iCost');
   if(cost<=0){ $('iCost').focus(); $('iCost').style.borderColor='var(--danger)'; return; }
   $('iCost').style.borderColor='';
   const editing = editIndex!==null;
   const existing = products.find(p=>(p.name||'').toLowerCase()===name.toLowerCase());
+  const qty=Math.max(1, parseInt($('iQty').value,10)||1);
+  const weight = existing ? (existing.weight||0) : 0;   // weight is a product property; shipping uses it
   const mkRaw=$('iMarkup')?$('iMarkup').value:'';
-  const data={name,cost,weight,cust:$('iCust').value.trim(),notes:$('iNotes').value.trim()};
+  const data={name,cost,weight,qty,cust:$('iCust').value.trim(),notes:$('iNotes').value.trim()};
   if(mkRaw!=='' && mkRaw!=null) data.markup=parseFloat(mkRaw)||0;                 // typed markup wins
   else if(existing && existing.markup!=null) data.markup=existing.markup;         // else carry the product's markup
   if(editing){
@@ -646,7 +650,7 @@ function addItem(){
     if(!existing && cost>0){ const np={name,cost,weight}; if(data.markup!=null) np.markup=data.markup; products.push(np); }   // new item → also save as a product (syncs)
     // keep iCust filled for fast multi-item entry
   }
-  $('iName').value=''; $('iCost').value=''; $('iWeight').value=''; $('iNotes').value=''; if($('iMarkup'))$('iMarkup').value='';
+  $('iName').value=''; $('iCost').value=''; if($('iQty'))$('iQty').value='1'; $('iNotes').value=''; if($('iMarkup'))$('iMarkup').value='';
   const inr=$('iNameResults'); if(inr) inr.innerHTML='';
   updateIPreview();
   custHintUpdate();
@@ -658,7 +662,7 @@ function addItem(){
 }
 function editItem(i){
   const it=items[i];
-  $('iName').value=it.name; $('iCost').value=it.cost; $('iWeight').value=it.weight||'';
+  $('iName').value=it.name; $('iCost').value=it.cost; if($('iQty'))$('iQty').value=(it.qty||1);
   $('iCust').value=it.cust||''; $('iNotes').value=it.notes||''; if($('iMarkup'))$('iMarkup').value=(it.markup!=null?it.markup:'');
   editIndex=i;
   $('addBtn').textContent='💾 Update item'; $('cancelBtn').style.display='block';
@@ -671,7 +675,7 @@ function stopEdit(){
 }
 function cancelEdit(){
   stopEdit();
-  $('iName').value=''; $('iCost').value=''; $('iWeight').value=''; $('iCust').value=''; $('iNotes').value=''; if($('iMarkup'))$('iMarkup').value='';
+  $('iName').value=''; $('iCost').value=''; if($('iQty'))$('iQty').value='1'; $('iCust').value=''; $('iNotes').value=''; if($('iMarkup'))$('iMarkup').value='';
   const inr=$('iNameResults'); if(inr) inr.innerHTML='';
   updateIPreview();
   custHintUpdate();
@@ -679,18 +683,25 @@ function cancelEdit(){
 /* Orders "Add item" — search products like the Live picker */
 function orderPick(idx){
   const p=products[idx]; if(!p) return;
-  $('iName').value=p.name; $('iCost').value=(p.cost!=null?p.cost:''); $('iWeight').value=(p.weight!=null?p.weight:'');
+  $('iName').value=p.name; $('iCost').value=(p.cost!=null?p.cost:''); if($('iQty'))$('iQty').value='1';
   if($('iMarkup')) $('iMarkup').value=(p.markup!=null?p.markup:'');
   const box=$('iNameResults'); if(box) box.innerHTML='';
   methodDesc(); updateIPreview(); $('iCost').focus();
 }
 /* live price previews while typing */
-function previewHTML(cost,weight,markup){
+function previewHTML(cost,weight,markup,qty){
   if(!(cost>0)) return '';
-  const p=priceItem({cost:cost,weight:weight,markup:(markup!==''&&markup!=null)?markup:null});
-  return '≈ sells at <b style="color:var(--php)">'+fmtP(p.php)+'</b> <span style="color:var(--muted)">('+fmtT(p.thb)+' · '+p.feeLabel+')</span>';
+  const p=priceItem({cost:cost,weight:weight,markup:(markup!==''&&markup!=null)?markup:null,qty:qty});
+  return '≈ sells at <b style="color:var(--php)">'+fmtP(p.php)+'</b> <span style="color:var(--muted)">('+fmtT(p.thb)+' · '+p.feeLabel+(p.qty>1?' · ×'+p.qty:'')+')</span>';
 }
-function updateIPreview(){ const el=$('iPreview'); if(el) el.innerHTML=previewHTML(num('iCost'),num('iWeight'),$('iMarkup')?$('iMarkup').value:''); }
+function updateIPreview(){
+  const el=$('iPreview'); if(!el) return;
+  const nm=$('iName').value.trim();
+  const ex=products.find(p=>(p.name||'').toLowerCase()===nm.toLowerCase());
+  const weight=ex?(ex.weight||0):0;                                   // shipping weight comes from the product
+  const qty=$('iQty')?Math.max(1,parseInt($('iQty').value,10)||1):1;
+  el.innerHTML=previewHTML(num('iCost'),weight,$('iMarkup')?$('iMarkup').value:'',qty);
+}
 function updatePPreview(){ const el=$('pPreview'); if(el) el.innerHTML=previewHTML(parseFloat($('pCost').value)||0, parseFloat($('pWeight').value)||0, $('pMarkup')?$('pMarkup').value:''); }
 function wPreview(){ const el=$('wNewPreview'); if(el) el.innerHTML=previewHTML(parseFloat(($('wNewCost')||{}).value)||0, parseFloat(($('wNewWeight')||{}).value)||0, ($('wNewMarkup')||{}).value); }
 function orderSearchUpdate(){
@@ -734,7 +745,7 @@ function closeBatch(){
   const t=nowISO();
   items.forEach(it=>{
     const p=priceItem(it);
-    sales.push({ t, cust:(it.cust||'').trim(), name:it.name, cost:p.cost, weight:it.weight||0, fee:p.fee, ship:p.ship, pay:p.pay, thb:p.thb, php:p.php });
+    sales.push({ t, cust:(it.cust||'').trim(), name:it.name, qty:p.qty, cost:p.cost, weight:it.weight||0, fee:p.fee, ship:p.ship, pay:p.pay, thb:p.thb, php:p.php });
   });
   items=[]; cancelEdit();
   saveAll(false); render(); renderReports();
@@ -756,16 +767,18 @@ function renderReports(){
   const box=$('reportBody'); if(!box) return;
   const rows=reportRows();
   let totalPhp=0; const byCust={};
+  let totalUnits=0;
   rows.forEach(s=>{
     totalPhp+=s.php;
+    const q=Math.max(1,parseInt(s.qty,10)||1); totalUnits+=q;
     const key=(s.cust||'').trim()||'🚶 Walk-in';
     if(!byCust[key]) byCust[key]={n:0,php:0};
-    byCust[key].n++; byCust[key].php+=s.php;
+    byCust[key].n+=q; byCust[key].php+=s.php;
   });
   const custs=Object.entries(byCust).sort((a,b)=>b[1].php-a[1].php);
   const kpis=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:12px 0">
     <div class="card" style="margin:0;text-align:center;padding:12px"><div style="font-size:20px;font-weight:800;color:var(--php)">${fmtP(totalPhp)}</div><div style="font-size:11px;color:var(--muted)">Total sales</div></div>
-    <div class="card" style="margin:0;text-align:center;padding:12px"><div style="font-size:20px;font-weight:800">${rows.length}</div><div style="font-size:11px;color:var(--muted)">Items sold</div></div>
+    <div class="card" style="margin:0;text-align:center;padding:12px"><div style="font-size:20px;font-weight:800">${totalUnits}</div><div style="font-size:11px;color:var(--muted)">Items sold</div></div>
     <div class="card" style="margin:0;text-align:center;padding:12px"><div style="font-size:20px;font-weight:800">${custs.length}</div><div style="font-size:11px;color:var(--muted)">Customers</div></div>
   </div>`;
   const list = custs.length
@@ -776,10 +789,10 @@ function renderReports(){
 function exportReport(){
   const rows=reportRows();
   if(!rows.length){ toast('No sales to export',true); return; }
-  const out=[['Date','Customer','Item','Cost (THB)','Total (THB)','Total (PHP)']];
+  const out=[['Date','Customer','Item','Qty','Cost (THB)','Total (THB)','Total (PHP)']];
   let g=0;
-  rows.forEach(s=>{ g+=s.php; out.push([ s.t?new Date(s.t).toLocaleDateString():'', s.cust||'Walk-in', s.name, r2(s.cost), r2(s.thb), r2(s.php) ]); });
-  out.push([]); out.push(['','','','','GRAND TOTAL (PHP)', r2(g)]);
+  rows.forEach(s=>{ g+=s.php; out.push([ s.t?new Date(s.t).toLocaleDateString():'', s.cust||'Walk-in', s.name, Math.max(1,parseInt(s.qty,10)||1), r2(s.cost), r2(s.thb), r2(s.php) ]); });
+  out.push([]); out.push(['','','','','','GRAND TOTAL (PHP)', r2(g)]);
   const csv='﻿'+out.map(r=>r.map(csvCell).join(',')).join('\r\n');
   download(csv,'pasabuy-report.csv','text/csv;charset=utf-8;');
   toast('⬇️ Report exported');
@@ -893,7 +906,7 @@ function orderProduct(i){
   const pr=products[i];
   const cust=$('pc_'+i).value.trim();
   const notes=$('pn_'+i).value.trim();
-  items.push({name:pr.name,cost:pr.cost,weight:pr.weight,markup:pr.markup,cust,notes,showBd:false,added:nowISO()});
+  items.push({name:pr.name,cost:pr.cost,weight:pr.weight,markup:pr.markup,qty:1,cust,notes,showBd:false,added:nowISO()});
   saveAll(false); render(); renderProducts();
   const card=$('products').children[i]; if(card) card.classList.remove('collapsed');
   const ci=$('pc_'+i); if(ci) ci.focus();
@@ -990,7 +1003,7 @@ function render(){
          <div class="item-top">
            <div>
              <div class="item-name">${escapeHtml(it.name)}${it.fromFB?'<span class="fb-badge">🔴 FB</span>':''}</div>
-             <div class="item-sub">฿${p.cost.toLocaleString()} · ${it.weight||0}kg · ${p.feeLabel}</div>
+             <div class="item-sub">฿${p.unitCost.toLocaleString()}${p.qty>1?` × ${p.qty}`:''} · ${p.feeLabel}</div>
              ${it.notes?`<div class="item-note">📝 ${escapeHtml(it.notes)}</div>`:''}
            </div>
            <div class="item-price">
@@ -1200,7 +1213,7 @@ function download(content,filename,mime){
 function exportCSV(){
   if(!items.length){ toast('No orders to export yet',true); return; }
   const {groups,order}=computeGroups();
-  const rows=[['Date','Customer','FB link / name','Item','Cost (THB)','Weight (kg)','Service fee (THB)','Shipping (THB)','Payment fee (THB)','Total (THB)','Total (PHP)','Notes']];
+  const rows=[['Date','Customer','FB link / name','Item','Qty','Cost (THB)','Service fee (THB)','Shipping (THB)','Payment fee (THB)','Total (THB)','Total (PHP)','Notes']];
   let gThb=0,gPhp=0;
   order.forEach(key=>{
     const g=groups[key];
@@ -1211,7 +1224,7 @@ function exportCSV(){
         key==='__none__'?'Walk-in':(g.label||'Customer'),
         it.cust||'',
         it.name,
-        r2(p.cost), it.weight||0, r2(p.fee), r2(p.ship), r2(p.pay), r2(p.thb), r2(p.php), it.notes||''
+        p.qty, r2(p.cost), r2(p.fee), r2(p.ship), r2(p.pay), r2(p.thb), r2(p.php), it.notes||''
       ]);
     });
   });
@@ -1392,9 +1405,7 @@ function wAddOrder(rec, silent){
   if(wDemoMode){ rec.addedToOrder=true; wAdded[rec.id]=true; wRender(); toast('(Demo) would add to '+rec.name.split(' ')[0]+"'s order"); return; }
   const q=Math.max(1, rec.order.qty||1);
   const rem=remainOf(prod);   // remaining before adding (null = no limit)
-  for(let k=0;k<q;k++){
-    items.push({name:prod.name, cost:prod.cost, weight:prod.weight, markup:prod.markup, cust:rec.name, notes:'FB: '+rec.text, fromFB:true, showBd:false, added:nowISO()});
-  }
+  items.push({name:prod.name, cost:prod.cost, weight:prod.weight, markup:prod.markup, qty:q, cust:rec.name, notes:'FB: '+rec.text, fromFB:true, showBd:false, added:nowISO()});
   wAdded[rec.id]=true; rec.addedToOrder=true;
   saveAll(false); render(); wRender();
   if(rem!=null && q>rem){ toast('⚠ Over max for '+prod.name+' ('+prod.max+') — added, check stock', true); }
@@ -1428,7 +1439,7 @@ function wPick(name){
   wSearchUpdate(); wCurrentText(); toast('Now showing: '+name);
 }
 function wClearNow(){ wActive=''; saveAll(false); wSearchUpdate(); wCurrentText(); toast('Showing: none'); }
-function soldOf(name){ let n=0; for(const it of items){ if(it && it.name===name) n++; } return n; }
+function soldOf(name){ let n=0; for(const it of items){ if(it && it.name===name) n+=Math.max(1,parseInt(it.qty,10)||1); } return n; }
 function remainOf(p){ if(!p || p.max==null || p.max==='') return null; return Math.max(0, (parseInt(p.max,10)||0) - soldOf(p.name)); }
 function wSearchUpdate(){
   const box=$('wSearchResults'); if(!box) return;
