@@ -1018,6 +1018,10 @@ function renderProducts(){
        </div>
        <div class="prod-body">
          ${prodBreakdownHTML(pr)}
+         <div style="display:flex;gap:10px;margin-bottom:12px">
+           <button class="btn-ghost" onclick="editProduct(${i})">✏️ Edit</button>
+           <button class="btn-ghost" onclick="delProduct(${i})">🗑️ Delete</button>
+         </div>
          <div class="prod-order">
            <label style="margin-top:0">👤 Customer — FB link or name</label>
            <input type="text" id="pc_${i}" placeholder="paste FB link or type name">
@@ -1028,10 +1032,6 @@ function renderProducts(){
          <div class="prod-custs">
            <div class="pc-title">🧑‍🤝‍🧑 Ordered by ${orders.length}${orders.length?` — total ${fmtP(pTotalPhp)}`:''}</div>
            ${custHtml}
-         </div>
-         <div style="display:flex;gap:10px;margin-top:10px">
-           <button class="btn-ghost" onclick="editProduct(${i})">✏️ Edit</button>
-           <button class="btn-ghost" onclick="delProduct(${i})">🗑️ Delete</button>
          </div>
        </div>`;
     box.appendChild(card);
