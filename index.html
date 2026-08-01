@@ -97,6 +97,7 @@
   .item{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:13px;margin-bottom:11px}
   .item-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
   .item-name{font-weight:600;font-size:14.5px}
+  .item-qty{display:inline-block;background:var(--accent);color:#04121f;font-weight:800;font-size:12px;padding:1px 8px;border-radius:20px;margin-left:6px;vertical-align:middle}
   .item-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
   .item-price{text-align:right;flex:none}
   .item-price .php{color:var(--php);font-weight:700;font-size:16px}
@@ -348,8 +349,17 @@
       </div>
     </div>
 
-    <label>Markup % — optional (blank = your global fee)</label>
-    <input type="number" id="iMarkup" placeholder="use global" step="1" inputmode="decimal" oninput="updateIPreview()">
+    <div class="row">
+      <div>
+        <label>Markup % — optional</label>
+        <input type="number" id="iMarkup" placeholder="use global" step="1" inputmode="decimal" oninput="updateIPreview()">
+      </div>
+      <div>
+        <label>💰 Sell price — ₱ (optional)</label>
+        <input type="number" id="iSell" placeholder="auto" step="1" inputmode="decimal" oninput="updateIPreview()">
+      </div>
+    </div>
+    <div class="hint" style="margin-top:4px;font-size:12px">Type a peso <b>Sell price</b> to set it exactly — it ignores markup/FX. Leave blank to auto-price from cost.</div>
     <div id="iPreview" class="hint" style="margin-top:8px;font-size:13.5px;min-height:18px"></div>
 
     <label>📝 Notes (optional)</label>
@@ -374,11 +384,12 @@
 
   <!-- TOTALS -->
   <div class="card total-card" id="totalsCard" style="display:none">
-    <div class="total-line"><span>Items subtotal</span><span class="thb-amt" id="tItems">฿0</span></div>
+    <div class="total-line"><span>Total cost (you paid)</span><span class="thb-amt" id="tCost">฿0</span></div>
     <div class="total-line" id="tShipLine"><span>Shipping</span><span class="thb-amt" id="tShip">฿0</span></div>
     <div class="total-line" id="tPayLine"><span>Payment fee</span><span class="thb-amt" id="tPay">฿0</span></div>
-    <div class="total-line"><span>Total in Baht</span><span class="thb-amt" id="tThb">฿0</span></div>
-    <div class="total-line grand"><span>ALL CUSTOMERS</span><span class="amt" id="tPhp">₱0</span></div>
+    <div class="total-line"><span>Customer pays (฿)</span><span class="thb-amt" id="tThb">฿0</span></div>
+    <div class="total-line grand"><span>CUSTOMER PAYS</span><span class="amt" id="tPhp">₱0</span></div>
+    <div class="total-line"><span>💰 Your profit</span><span class="amt" id="tProfit" style="color:var(--accent2)">₱0</span></div>
     <div class="copy-note">Each customer has their own 📋 Copy quote button above. This copies the whole day's order.</div>
     <button class="btn-primary" style="margin-top:12px" onclick="copyAll(event)">📋 Copy full order (all customers)</button>
     <button class="btn-primary" style="margin-top:10px;background:var(--accent2)" onclick="exportCSV()">⬇️ Export to Excel (.csv)</button>
@@ -413,6 +424,8 @@
           <input type="number" id="pMax" placeholder="no limit" step="1" inputmode="numeric">
         </div>
       </div>
+      <label>💰 Sell price — ₱ (optional, blank = auto)</label>
+      <input type="number" id="pSell" placeholder="auto from cost + markup" step="1" inputmode="decimal" oninput="updatePPreview()">
       <label style="margin-top:12px">📷 Photo — optional</label>
       <input type="file" id="pImgFile" accept="image/*" style="display:none" onchange="pOnImagePick(this)">
       <div class="pimg-wrap">
@@ -606,9 +619,28 @@ function methodDesc(){
 }
 
 /* ---------- core pricing ---------- */
+function sellOverride(it){
+  // manual sell price in ₱ (per unit); blank/0 = use auto pricing
+  const v = (it && it.sellPhp!=null && it.sellPhp!=='') ? parseFloat(it.sellPhp) : NaN;
+  return (isFinite(v) && v>0) ? v : null;
+}
 function priceItem(it){
   const cost=it.cost, w=it.weight;
   const qty=Math.max(1, parseInt(it.qty,10)||1);
+  const fx=num('fx');
+  const costThb=cost*qty, costPhp=costThb*fx;    // what you paid
+
+  // 1) manual sell price (₱) — you type it, it overrides everything
+  const manualUnit=sellOverride(it);
+  if(manualUnit!=null){
+    const php=manualUnit*qty;                     // customer pays (₱)
+    const thb=fx>0?php/fx:0;
+    return {cost:costThb, fee:0, feeLabel:'Manual ₱', ship:0, pay:0, thb, php,
+            qty, unitCost:cost, unitThb:(fx>0?manualUnit/fx:0),
+            costPhp, profitPhp:php-costPhp, manual:true, unitSellPhp:manualUnit};
+  }
+
+  // 2) auto: cost + service fee + shipping + payment fee, then × FX
   let fee=0, feeLabel='';
   if(it.markup!=null && it.markup!==''){
     const mk=parseFloat(it.markup)||0; fee=cost*mk/100; feeLabel=`Custom ${mk}%`;
@@ -618,13 +650,14 @@ function priceItem(it){
     else if(m==='kg'){ fee=w*num('perKg'); feeLabel=`Per-kg ฿${num('perKg')}×${w}kg`; }
     else { const p=tierPct(cost); fee=cost*p/100; feeLabel=`Tier ${p}%`; }
   }
-
   const ship = ($('useShip').checked ? w*num('shipKg') : 0);
   const base = cost + fee + ship;
   const pay = ($('usePay').checked ? base*num('payPct')/100 : 0);
-  const thb = base + pay;
+  const unitThb = base + pay;
+  const php = unitThb*qty*fx;
   // qty scales the whole line; unit* values kept for display
-  return {cost:cost*qty, fee:fee*qty, feeLabel, ship:ship*qty, pay:pay*qty, thb:thb*qty, php:thb*qty*num('fx'), qty, unitCost:cost, unitThb:thb};
+  return {cost:costThb, fee:fee*qty, feeLabel, ship:ship*qty, pay:pay*qty, thb:unitThb*qty, php,
+          qty, unitCost:cost, unitThb, costPhp, profitPhp:php-costPhp, manual:false, unitSellPhp:unitThb*fx};
 }
 
 /* ---------- add / remove items ---------- */
@@ -638,19 +671,23 @@ function addItem(){
   const qty=Math.max(1, parseInt($('iQty').value,10)||1);
   const weight = existing ? (existing.weight||0) : 0;   // weight is a product property; shipping uses it
   const mkRaw=$('iMarkup')?$('iMarkup').value:'';
+  const sellRaw=$('iSell')?$('iSell').value:'';
   const data={name,cost,weight,qty,cust:$('iCust').value.trim(),notes:$('iNotes').value.trim()};
   if(mkRaw!=='' && mkRaw!=null) data.markup=parseFloat(mkRaw)||0;                 // typed markup wins
   else if(existing && existing.markup!=null) data.markup=existing.markup;         // else carry the product's markup
+  if(sellRaw!=='' && parseFloat(sellRaw)>0) data.sellPhp=parseFloat(sellRaw);     // typed sell price wins
+  else if(existing && existing.sellPhp!=null) data.sellPhp=existing.sellPhp;      // else carry the product's sell price
+  else data.sellPhp=null;                                                         // clear on edit if blank
   if(editing){
     items[editIndex]={...items[editIndex],...data};
     stopEdit();
     $('iCust').value='';
   } else {
     items.push({...data,showBd:false,added:nowISO()});
-    if(!existing && cost>0){ const np={name,cost,weight}; if(data.markup!=null) np.markup=data.markup; products.push(np); }   // new item → also save as a product (syncs)
+    if(!existing && cost>0){ const np={name,cost,weight}; if(data.markup!=null) np.markup=data.markup; if(data.sellPhp!=null) np.sellPhp=data.sellPhp; products.push(np); }   // new item → also save as a product (syncs)
     // keep iCust filled for fast multi-item entry
   }
-  $('iName').value=''; $('iCost').value=''; if($('iQty'))$('iQty').value='1'; $('iNotes').value=''; if($('iMarkup'))$('iMarkup').value='';
+  $('iName').value=''; $('iCost').value=''; if($('iQty'))$('iQty').value='1'; $('iNotes').value=''; if($('iMarkup'))$('iMarkup').value=''; if($('iSell'))$('iSell').value='';
   const inr=$('iNameResults'); if(inr) inr.innerHTML='';
   updateIPreview();
   custHintUpdate();
@@ -664,6 +701,7 @@ function editItem(i){
   const it=items[i];
   $('iName').value=it.name; $('iCost').value=it.cost; if($('iQty'))$('iQty').value=(it.qty||1);
   $('iCust').value=it.cust||''; $('iNotes').value=it.notes||''; if($('iMarkup'))$('iMarkup').value=(it.markup!=null?it.markup:'');
+  if($('iSell'))$('iSell').value=(it.sellPhp!=null?it.sellPhp:'');
   editIndex=i;
   $('addBtn').textContent='💾 Update item'; $('cancelBtn').style.display='block';
   methodDesc(); custHintUpdate(); updateIPreview();
@@ -675,7 +713,7 @@ function stopEdit(){
 }
 function cancelEdit(){
   stopEdit();
-  $('iName').value=''; $('iCost').value=''; if($('iQty'))$('iQty').value='1'; $('iCust').value=''; $('iNotes').value=''; if($('iMarkup'))$('iMarkup').value='';
+  $('iName').value=''; $('iCost').value=''; if($('iQty'))$('iQty').value='1'; $('iCust').value=''; $('iNotes').value=''; if($('iMarkup'))$('iMarkup').value=''; if($('iSell'))$('iSell').value='';
   const inr=$('iNameResults'); if(inr) inr.innerHTML='';
   updateIPreview();
   custHintUpdate();
@@ -685,14 +723,20 @@ function orderPick(idx){
   const p=products[idx]; if(!p) return;
   $('iName').value=p.name; $('iCost').value=(p.cost!=null?p.cost:''); if($('iQty'))$('iQty').value='1';
   if($('iMarkup')) $('iMarkup').value=(p.markup!=null?p.markup:'');
+  if($('iSell')) $('iSell').value=(p.sellPhp!=null?p.sellPhp:'');
   const box=$('iNameResults'); if(box) box.innerHTML='';
   methodDesc(); updateIPreview(); $('iCost').focus();
 }
 /* live price previews while typing */
-function previewHTML(cost,weight,markup,qty){
-  if(!(cost>0)) return '';
-  const p=priceItem({cost:cost,weight:weight,markup:(markup!==''&&markup!=null)?markup:null,qty:qty});
-  return '≈ sells at <b style="color:var(--php)">'+fmtP(p.php)+'</b> <span style="color:var(--muted)">('+fmtT(p.thb)+' · '+p.feeLabel+(p.qty>1?' · ×'+p.qty:'')+')</span>';
+function previewHTML(cost,weight,markup,qty,sell){
+  const hasSell=(sell!==''&&sell!=null&&parseFloat(sell)>0);
+  if(!(cost>0) && !hasSell) return '';
+  const p=priceItem({cost:cost,weight:weight,markup:(markup!==''&&markup!=null)?markup:null,qty:qty,sellPhp:hasSell?sell:null});
+  const basis = p.manual ? 'manual price' : (fmtT(p.thb)+' · '+p.feeLabel);
+  let profit='';
+  if(p.profitPhp>0.5) profit=' <span style="color:var(--accent2)">· profit '+fmtP(p.profitPhp)+'</span>';
+  else if(p.profitPhp<-0.5) profit=' <span style="color:var(--danger)">· LOSS '+fmtP(-p.profitPhp)+'</span>';
+  return '≈ sells at <b style="color:var(--php)">'+fmtP(p.php)+'</b> <span style="color:var(--muted)">('+basis+(p.qty>1?' · ×'+p.qty:'')+')</span>'+profit;
 }
 function updateIPreview(){
   const el=$('iPreview'); if(!el) return;
@@ -700,9 +744,9 @@ function updateIPreview(){
   const ex=products.find(p=>(p.name||'').toLowerCase()===nm.toLowerCase());
   const weight=ex?(ex.weight||0):0;                                   // shipping weight comes from the product
   const qty=$('iQty')?Math.max(1,parseInt($('iQty').value,10)||1):1;
-  el.innerHTML=previewHTML(num('iCost'),weight,$('iMarkup')?$('iMarkup').value:'',qty);
+  el.innerHTML=previewHTML(num('iCost'),weight,$('iMarkup')?$('iMarkup').value:'',qty,$('iSell')?$('iSell').value:'');
 }
-function updatePPreview(){ const el=$('pPreview'); if(el) el.innerHTML=previewHTML(parseFloat($('pCost').value)||0, parseFloat($('pWeight').value)||0, $('pMarkup')?$('pMarkup').value:''); }
+function updatePPreview(){ const el=$('pPreview'); if(el) el.innerHTML=previewHTML(parseFloat($('pCost').value)||0, parseFloat($('pWeight').value)||0, $('pMarkup')?$('pMarkup').value:'', 1, $('pSell')?$('pSell').value:''); }
 function wPreview(){ const el=$('wNewPreview'); if(el) el.innerHTML=previewHTML(parseFloat(($('wNewCost')||{}).value)||0, parseFloat(($('wNewWeight')||{}).value)||0, ($('wNewMarkup')||{}).value); }
 function orderSearchUpdate(){
   const box=$('iNameResults'); if(!box) return;
@@ -745,7 +789,7 @@ function closeBatch(){
   const t=nowISO();
   items.forEach(it=>{
     const p=priceItem(it);
-    sales.push({ t, cust:(it.cust||'').trim(), name:it.name, qty:p.qty, cost:p.cost, weight:it.weight||0, fee:p.fee, ship:p.ship, pay:p.pay, thb:p.thb, php:p.php });
+    sales.push({ t, cust:(it.cust||'').trim(), name:it.name, qty:p.qty, cost:p.cost, costPhp:p.costPhp, weight:it.weight||0, fee:p.fee, ship:p.ship, pay:p.pay, thb:p.thb, php:p.php, profit:p.profitPhp });
   });
   items=[]; cancelEdit();
   saveAll(false); render(); renderReports();
@@ -766,10 +810,12 @@ function reportRows(){
 function renderReports(){
   const box=$('reportBody'); if(!box) return;
   const rows=reportRows();
-  let totalPhp=0; const byCust={};
+  let totalPhp=0, totalProfit=0; const byCust={};
   let totalUnits=0;
   rows.forEach(s=>{
     totalPhp+=s.php;
+    const prof = s.profit!=null ? s.profit : (s.php - (s.costPhp!=null?s.costPhp:(s.cost||0)*num('fx')));
+    totalProfit+=prof;
     const q=Math.max(1,parseInt(s.qty,10)||1); totalUnits+=q;
     const key=(s.cust||'').trim()||'🚶 Walk-in';
     if(!byCust[key]) byCust[key]={n:0,php:0};
@@ -781,18 +827,25 @@ function renderReports(){
     <div class="card" style="margin:0;text-align:center;padding:12px"><div style="font-size:20px;font-weight:800">${totalUnits}</div><div style="font-size:11px;color:var(--muted)">Items sold</div></div>
     <div class="card" style="margin:0;text-align:center;padding:12px"><div style="font-size:20px;font-weight:800">${custs.length}</div><div style="font-size:11px;color:var(--muted)">Customers</div></div>
   </div>`;
+  const profitBar=`<div class="card" style="margin:0 0 4px;display:flex;justify-content:space-between;align-items:center;padding:12px"><span style="font-weight:700">💰 Total profit</span><span style="font-size:20px;font-weight:800;color:${totalProfit>=0?'var(--accent2)':'var(--danger)'}">${fmtP(totalProfit)}</span></div>`;
   const list = custs.length
     ? custs.map(([k,v])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)"><div><div style="font-weight:600">${escapeHtml(k)}</div><div style="font-size:11px;color:var(--muted)">${v.n} item${v.n>1?'s':''}</div></div><div style="color:var(--php);font-weight:800;font-size:16px">${fmtP(v.php)}</div></div>`).join('')
     : '<div class="empty">No sales in this period yet.<br>Finish a batch on the Orders page and tap “📦 Close &amp; save to history”.</div>';
-  box.innerHTML = kpis + '<div class="pc-title" style="margin-top:6px">By customer (highest first)</div>' + list;
+  box.innerHTML = kpis + profitBar + '<div class="pc-title" style="margin-top:6px">By customer (highest first)</div>' + list;
 }
 function exportReport(){
   const rows=reportRows();
   if(!rows.length){ toast('No sales to export',true); return; }
-  const out=[['Date','Customer','Item','Qty','Cost (THB)','Total (THB)','Total (PHP)']];
-  let g=0;
-  rows.forEach(s=>{ g+=s.php; out.push([ s.t?new Date(s.t).toLocaleDateString():'', s.cust||'Walk-in', s.name, Math.max(1,parseInt(s.qty,10)||1), r2(s.cost), r2(s.thb), r2(s.php) ]); });
-  out.push([]); out.push(['','','','','','GRAND TOTAL (PHP)', r2(g)]);
+  const fx=num('fx');
+  const out=[['Date','Customer','Item','Qty','Cost (฿)','Cost (₱)','Sell (₱)','Profit (₱)']];
+  let g=0, gp=0;
+  rows.forEach(s=>{
+    const costPhp = s.costPhp!=null?s.costPhp:(s.cost||0)*fx;
+    const prof = s.profit!=null?s.profit:(s.php-costPhp);
+    g+=s.php; gp+=prof;
+    out.push([ s.t?new Date(s.t).toLocaleDateString():'', s.cust||'Walk-in', s.name, Math.max(1,parseInt(s.qty,10)||1), r2(s.cost), r2(costPhp), r2(s.php), r2(prof) ]);
+  });
+  out.push([]); out.push(['','','GRAND TOTAL','','','', r2(g), r2(gp)]);
   const csv='﻿'+out.map(r=>r.map(csvCell).join(',')).join('\r\n');
   download(csv,'pasabuy-report.csv','text/csv;charset=utf-8;');
   toast('⬇️ Report exported');
@@ -880,13 +933,15 @@ function addProduct(){
   $('pCost').style.borderColor='';
   const mkRaw=$('pMarkup')?$('pMarkup').value:'';
   const mxRaw=$('pMax')?$('pMax').value:'';
+  const sellRaw=$('pSell')?$('pSell').value:'';
   const prod={name,cost,weight};
   if(mkRaw!=='' && mkRaw!=null) prod.markup=parseFloat(mkRaw)||0;
   if(mxRaw!=='' && mxRaw!=null) prod.max=parseInt(mxRaw,10)||0;
+  if(sellRaw!=='' && parseFloat(sellRaw)>0) prod.sellPhp=parseFloat(sellRaw);
   if(pImg) prod.img=pImg;
   if(pEditIndex!==null){ products[pEditIndex]=prod; stopProductEdit(); }
   else products.push(prod);
-  $('pName').value=''; $('pCost').value=''; $('pWeight').value=''; if($('pMarkup'))$('pMarkup').value=''; if($('pMax'))$('pMax').value=''; pClearImage();
+  $('pName').value=''; $('pCost').value=''; $('pWeight').value=''; if($('pMarkup'))$('pMarkup').value=''; if($('pMax'))$('pMax').value=''; if($('pSell'))$('pSell').value=''; pClearImage();
   saveAll(false); renderProducts();
   toast('✓ Product saved');
 }
@@ -895,18 +950,19 @@ function editProduct(i){
   $('pName').value=pr.name; $('pCost').value=pr.cost; $('pWeight').value=pr.weight||'';
   if($('pMarkup')) $('pMarkup').value=(pr.markup!=null?pr.markup:'');
   if($('pMax')) $('pMax').value=(pr.max!=null?pr.max:'');
+  if($('pSell')) $('pSell').value=(pr.sellPhp!=null?pr.sellPhp:'');
   pImg=pr.img||''; pShowImage();
   pEditIndex=i; $('pAddBtn').textContent='💾 Update product'; $('pCancelBtn').style.display='block';
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function stopProductEdit(){ pEditIndex=null; $('pAddBtn').textContent='Save product'; $('pCancelBtn').style.display='none'; }
-function cancelProductEdit(){ stopProductEdit(); $('pName').value=''; $('pCost').value=''; $('pWeight').value=''; if($('pMarkup'))$('pMarkup').value=''; if($('pMax'))$('pMax').value=''; pClearImage(); }
+function cancelProductEdit(){ stopProductEdit(); $('pName').value=''; $('pCost').value=''; $('pWeight').value=''; if($('pMarkup'))$('pMarkup').value=''; if($('pMax'))$('pMax').value=''; if($('pSell'))$('pSell').value=''; pClearImage(); }
 function delProduct(i){ if(pEditIndex===i) cancelProductEdit(); products.splice(i,1); saveAll(false); renderProducts(); toast('🗑️ Product removed'); }
 function orderProduct(i){
   const pr=products[i];
   const cust=$('pc_'+i).value.trim();
   const notes=$('pn_'+i).value.trim();
-  items.push({name:pr.name,cost:pr.cost,weight:pr.weight,markup:pr.markup,qty:1,cust,notes,showBd:false,added:nowISO()});
+  items.push({name:pr.name,cost:pr.cost,weight:pr.weight,markup:pr.markup,sellPhp:pr.sellPhp,qty:1,cust,notes,showBd:false,added:nowISO()});
   saveAll(false); render(); renderProducts();
   const card=$('products').children[i]; if(card) card.classList.remove('collapsed');
   const ci=$('pc_'+i); if(ci) ci.focus();
@@ -918,7 +974,7 @@ function renderProducts(){
   if(!products.length){ box.innerHTML='<div class="empty">No products yet.<br>Add one above to quick-order it.</div>'; return; }
   box.innerHTML='';
   products.forEach((pr,i)=>{
-    const p=priceItem({cost:pr.cost,weight:pr.weight});
+    const p=priceItem({cost:pr.cost,weight:pr.weight,markup:pr.markup,sellPhp:pr.sellPhp});
     // customers who ordered this product (matched by product name)
     const orders=items.filter(it=>it.name===pr.name);
     let custHtml, pTotalPhp=0;
@@ -935,7 +991,7 @@ function renderProducts(){
     card.className='cust-group prod-card collapsed';
     card.innerHTML=
       `<div class="cust-head prod-head" onclick="this.parentNode.classList.toggle('collapsed')">
-         <div class="cust-name${pr.img?' has-thumb':''}">${pr.img?`<img class="prod-thumb" src="${pr.img}" alt="">`:''}<span class="cust-name-txt">📦 ${escapeHtml(pr.name)}<span class="cust-count">฿${pr.cost.toLocaleString()} · ${pr.weight||0}kg${pr.markup!=null?' · '+pr.markup+'% markup':''}${pr.max!=null&&pr.max!==''?' · max '+pr.max+' ('+(remainOf(pr))+' left)':''}</span>
+         <div class="cust-name${pr.img?' has-thumb':''}">${pr.img?`<img class="prod-thumb" src="${pr.img}" alt="">`:''}<span class="cust-name-txt">📦 ${escapeHtml(pr.name)}<span class="cust-count">฿${pr.cost.toLocaleString()} · ${pr.weight||0}kg${pr.markup!=null?' · '+pr.markup+'% markup':''}${pr.sellPhp!=null?' · ₱'+Number(pr.sellPhp).toLocaleString()+' fixed':''}${pr.max!=null&&pr.max!==''?' · max '+pr.max+' ('+(remainOf(pr))+' left)':''}</span>
            <span class="prod-sub">🧑‍🤝‍🧑 ${orders.length} ordered${orders.length?` · ${fmtP(pTotalPhp)}`:''}</span></span>
          </div>
          <div style="display:flex;align-items:center;gap:8px;flex:none">
@@ -989,7 +1045,7 @@ function render(){
     $('totalsCard').style.display='none';
     return;
   }
-  let sItems=0,sShip=0,sPay=0,sThb=0,sPhp=0;
+  let sCost=0,sShip=0,sPay=0,sThb=0,sPhp=0,sCostPhp=0;
   box.innerHTML='';
   shown.forEach(key=>{
     const g=groups[key]; const isNone=key==='__none__';
@@ -997,28 +1053,29 @@ function render(){
     const head=isNone?'🚶 Walk-in / no FB link':('👤 '+custLink(g.label||'Customer'));
     let rowsHtml='';
     g.rows.forEach(({it,i,p})=>{
-      sItems+=p.cost+p.fee; sShip+=p.ship; sPay+=p.pay; sThb+=p.thb; sPhp+=p.php;
+      sCost+=p.cost; sShip+=p.ship; sPay+=p.pay; sThb+=p.thb; sPhp+=p.php; sCostPhp+=p.costPhp;
       rowsHtml+=
       `<div class="item"${editIndex===i?' style="outline:2px solid var(--accent)"':''}>
          <div class="item-top">
            <div>
-             <div class="item-name">${escapeHtml(it.name)}${it.fromFB?'<span class="fb-badge">🔴 FB</span>':''}</div>
-             <div class="item-sub">฿${p.unitCost.toLocaleString()}${p.qty>1?` × ${p.qty}`:''} · ${p.feeLabel}</div>
+             <div class="item-name">${escapeHtml(it.name)}${p.qty>1?` <span class="item-qty">× ${p.qty}</span>`:''}${it.fromFB?'<span class="fb-badge">🔴 FB</span>':''}</div>
+             <div class="item-sub">฿${p.unitCost.toLocaleString()}${p.qty>1?` × ${p.qty}`:''} · ${p.feeLabel}${p.ship?` · +${fmtT(p.ship)} ship`:''}</div>
              ${it.notes?`<div class="item-note">📝 ${escapeHtml(it.notes)}</div>`:''}
            </div>
            <div class="item-price">
              <div class="php">${fmtP(p.php)}</div>
-             <div class="thb">${fmtT(p.thb)}</div>
+             <div class="thb">cost ${fmtT(p.cost)}${p.profitPhp>0.5?` · <span style="color:var(--accent2)">+${fmtP(p.profitPhp)}</span>`:(p.profitPhp<-0.5?` · <span style="color:var(--danger)">−${fmtP(-p.profitPhp)}</span>`:'')}</div>
              <div><button class="item-edit" onclick="editItem(${i})">✏️</button><button class="item-del" onclick="delItem(${i})">🗑️</button></div>
            </div>
          </div>
          <span class="toggle-bd" onclick="toggleBd(${i})">${it.showBd?'▴ hide':'▾ breakdown'}</span>
          <div class="breakdown ${it.showBd?'show':''}">
-           <div><span>Item cost</span><span>${fmtT(p.cost)}</span></div>
-           <div><span>Service fee (${p.feeLabel})</span><span>${fmtT(p.fee)}</span></div>
+           <div><span>You paid (cost)</span><span>${fmtT(p.cost)} = ${fmtP(p.costPhp)}</span></div>
+           ${!p.manual?`<div><span>Service fee (${p.feeLabel})</span><span>${fmtT(p.fee)}</span></div>`:''}
            ${p.ship?`<div><span>Shipping</span><span>${fmtT(p.ship)}</span></div>`:''}
            ${p.pay?`<div><span>Payment fee</span><span>${fmtT(p.pay)}</span></div>`:''}
-           <div class="b-total"><span>Total</span><span>${fmtT(p.thb)} = ${fmtP(p.php)}</span></div>
+           <div class="b-total"><span>Sell price${p.manual?' (manual)':''}</span><span>${fmtT(p.thb)} = ${fmtP(p.php)}</span></div>
+           <div><span>Your profit</span><span style="color:${p.profitPhp>=0?'var(--accent2)':'var(--danger)'}">${fmtP(p.profitPhp)}</span></div>
          </div>
        </div>`;
     });
@@ -1041,11 +1098,14 @@ function render(){
   });
   // totals (reflect what's shown)
   $('totalsCard').style.display='block';
-  $('tItems').textContent=fmtT(sItems);
+  $('tCost').textContent=fmtT(sCost)+' = '+fmtP(sCostPhp);
   $('tShip').textContent=fmtT(sShip);
   $('tPay').textContent=fmtT(sPay);
   $('tThb').textContent=fmtT(sThb);
   $('tPhp').textContent=fmtP(sPhp);
+  const sProfit=sPhp-sCostPhp;
+  $('tProfit').textContent=fmtP(sProfit);
+  $('tProfit').style.color = sProfit>=0?'var(--accent2)':'var(--danger)';
   $('tShipLine').style.display = sShip>0?'flex':'none';
   $('tPayLine').style.display  = sPay>0?'flex':'none';
 }
@@ -1173,7 +1233,7 @@ function copyCust(gi,ev){
   if(key!=='__none__' && g.label) lines.push(g.label);
   lines.push('');
   g.rows.forEach(({it,p})=>{
-    lines.push(`• ${it.name} — ${fmtP(p.php)}`);
+    lines.push(`• ${it.name}${p.qty>1?` × ${p.qty}`:''} — ${fmtP(p.php)}`);
     if(it.notes) lines.push(`   ↳ ${it.notes}`);
   });
   lines.push('');
@@ -1189,7 +1249,7 @@ function copyAll(ev){
     const g=groups[key];
     lines.push('');
     lines.push((key==='__none__'?'🚶 Walk-in':'👤 '+(g.label||'Customer'))+`  — ${fmtP(g.php)}`);
-    g.rows.forEach(({it,p})=> lines.push(`   • ${it.name} — ${fmtP(p.php)}`));
+    g.rows.forEach(({it,p})=> lines.push(`   • ${it.name}${p.qty>1?` × ${p.qty}`:''} — ${fmtP(p.php)}`));
     gThb+=g.thb; gPhp+=g.php;
   });
   lines.push('');
@@ -1213,23 +1273,23 @@ function download(content,filename,mime){
 function exportCSV(){
   if(!items.length){ toast('No orders to export yet',true); return; }
   const {groups,order}=computeGroups();
-  const rows=[['Date','Customer','FB link / name','Item','Qty','Cost (THB)','Service fee (THB)','Shipping (THB)','Payment fee (THB)','Total (THB)','Total (PHP)','Notes']];
-  let gThb=0,gPhp=0;
+  const rows=[['Date','Customer','FB link / name','Item','Qty','Cost (฿)','Cost (₱)','Service fee (฿)','Shipping (฿)','Payment fee (฿)','Sell (฿)','Sell (₱)','Profit (₱)','Notes']];
+  let gThb=0,gPhp=0,gProfit=0,gCostPhp=0;
   order.forEach(key=>{
     const g=groups[key];
     g.rows.forEach(({it,p})=>{
-      gThb+=p.thb; gPhp+=p.php;
+      gThb+=p.thb; gPhp+=p.php; gProfit+=p.profitPhp; gCostPhp+=p.costPhp;
       rows.push([
         it.added?new Date(it.added).toLocaleDateString():'',
         key==='__none__'?'Walk-in':(g.label||'Customer'),
         it.cust||'',
         it.name,
-        p.qty, r2(p.cost), r2(p.fee), r2(p.ship), r2(p.pay), r2(p.thb), r2(p.php), it.notes||''
+        p.qty, r2(p.cost), r2(p.costPhp), r2(p.fee), r2(p.ship), r2(p.pay), r2(p.thb), r2(p.php), r2(p.profitPhp), it.notes||''
       ]);
     });
   });
   rows.push([]);
-  rows.push(['','','','GRAND TOTAL','','','','','',r2(gThb),r2(gPhp),'']);
+  rows.push(['','','','GRAND TOTAL','','',r2(gCostPhp),'','','',r2(gThb),r2(gPhp),r2(gProfit),'']);
   const csv='﻿'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n');
   const d=new Date();
   const stamp=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -1405,7 +1465,7 @@ function wAddOrder(rec, silent){
   if(wDemoMode){ rec.addedToOrder=true; wAdded[rec.id]=true; wRender(); toast('(Demo) would add to '+rec.name.split(' ')[0]+"'s order"); return; }
   const q=Math.max(1, rec.order.qty||1);
   const rem=remainOf(prod);   // remaining before adding (null = no limit)
-  items.push({name:prod.name, cost:prod.cost, weight:prod.weight, markup:prod.markup, qty:q, cust:rec.name, notes:'FB: '+rec.text, fromFB:true, showBd:false, added:nowISO()});
+  items.push({name:prod.name, cost:prod.cost, weight:prod.weight, markup:prod.markup, sellPhp:prod.sellPhp, qty:q, cust:rec.name, notes:'FB: '+rec.text, fromFB:true, showBd:false, added:nowISO()});
   wAdded[rec.id]=true; rec.addedToOrder=true;
   saveAll(false); render(); wRender();
   if(rem!=null && q>rem){ toast('⚠ Over max for '+prod.name+' ('+prod.max+') — added, check stock', true); }
