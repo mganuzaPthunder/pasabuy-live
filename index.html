@@ -968,6 +968,23 @@ function orderProduct(i){
   const ci=$('pc_'+i); if(ci) ci.focus();
   toast(cust?`✓ Added to ${cust}'s order`:'✓ Added to orders (walk-in)');
 }
+// Price breakdown for a product card: conversion → markup → profit
+function prodBreakdownHTML(pr){
+  const fx=num('fx');
+  const p=priceItem({cost:pr.cost,weight:pr.weight,markup:pr.markup,sellPhp:pr.sellPhp});
+  const rows=[];
+  rows.push(`<div><span>💱 Conversion</span><span>฿${Number(pr.cost).toLocaleString()} × ${fx} = ${fmtP(p.costPhp)}</span></div>`);
+  if(p.manual){
+    rows.push(`<div><span>💰 Sell price (manual)</span><span>${fmtP(p.php)}</span></div>`);
+  } else {
+    rows.push(`<div><span>📈 ${p.feeLabel.replace('Custom','Markup')}</span><span>+${fmtP(p.fee*fx)}</span></div>`);
+    if(p.ship) rows.push(`<div><span>🚚 Shipping</span><span>+${fmtP(p.ship*fx)}</span></div>`);
+    if(p.pay)  rows.push(`<div><span>💳 Payment fee</span><span>+${fmtP(p.pay*fx)}</span></div>`);
+    rows.push(`<div class="b-total"><span>Sells at</span><span>${fmtP(p.php)}</span></div>`);
+  }
+  rows.push(`<div><span>💰 Profit</span><span style="color:${p.profitPhp>=0?'var(--accent2)':'var(--danger)'};font-weight:700">${fmtP(p.profitPhp)}</span></div>`);
+  return `<div class="breakdown show" style="margin-top:0;padding-top:0;border-top:none;margin-bottom:12px">${rows.join('')}</div>`;
+}
 function renderProducts(){
   const box=$('products'); if(!box) return;
   $('pCount').textContent=products.length;
@@ -1000,6 +1017,7 @@ function renderProducts(){
          </div>
        </div>
        <div class="prod-body">
+         ${prodBreakdownHTML(pr)}
          <div class="prod-order">
            <label style="margin-top:0">👤 Customer — FB link or name</label>
            <input type="text" id="pc_${i}" placeholder="paste FB link or type name">
