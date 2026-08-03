@@ -184,6 +184,11 @@
     .wrap.orders-wide #addItemCard{grid-column:1;grid-row:1}
     .wrap.orders-wide #totalsCard{grid-column:1;grid-row:2}
     .wrap.orders-wide #orderCard{grid-column:2;grid-row:1 / span 2}
+    /* Products page: add form on the left, product list on the right */
+    .wrap.products-wide{max-width:1000px}
+    .wrap.products-wide #page-products{display:grid !important;grid-template-columns:360px 1fr;gap:0 16px;align-items:start}
+    .wrap.products-wide #addProductCard{grid-column:1;grid-row:1}
+    .wrap.products-wide #productsCard{grid-column:2;grid-row:1}
   }
   #lockScreen{position:fixed;inset:0;z-index:1000;background:linear-gradient(135deg,#0ea5e9,#22c55e);display:none;align-items:center;justify-content:center;padding:20px}
   #lockScreen.show{display:flex}
@@ -400,7 +405,7 @@
 
   <!-- PRODUCTS PAGE -->
   <div id="page-products" style="display:none">
-    <div class="card">
+    <div class="card" id="addProductCard">
       <h2>📦 Add a product</h2>
       <label>Product name</label>
       <input type="text" id="pName" placeholder="e.g. Gentlewoman Medium Tote">
@@ -440,8 +445,12 @@
       <button class="btn-ghost" id="pCancelBtn" style="display:none;margin-top:8px" onclick="cancelProductEdit()">Cancel edit</button>
     </div>
 
-    <div class="card">
+    <div class="card" id="productsCard">
       <h2>📦 Products <span class="badge" id="pCount">0</span></h2>
+      <div class="search-wrap">
+        <input id="pSearch" placeholder="🔍 Search products by name" oninput="renderProducts()" autocomplete="off">
+        <button class="clr" id="pClearSearch" onclick="$('pSearch').value='';renderProducts()" style="display:none">✕</button>
+      </div>
       <div class="hint" style="margin-bottom:10px">Tap a product, add the customer's FB link/name + a note, and it goes straight to your Orders.</div>
       <div id="products"><div class="empty">No products yet.<br>Add one above to quick-order it.</div></div>
     </div>
@@ -886,7 +895,7 @@ function showPage(pg){
   $('tabSettings').classList.toggle('active', pg==='settings');
   $('tabReports').classList.toggle('active', pg==='reports');
   const wrap=document.querySelector('.wrap');
-  if(wrap){ wrap.classList.toggle('live-wide', pg==='live'); wrap.classList.toggle('orders-wide', pg==='orders'); }
+  if(wrap){ wrap.classList.toggle('live-wide', pg==='live'); wrap.classList.toggle('orders-wide', pg==='orders'); wrap.classList.toggle('products-wide', pg==='products'); }
   if(pg==='orders') render();
   else if(pg==='products') renderProducts();
   else if(pg==='settings'){ syncFillFields(); methodDesc(); }
@@ -987,10 +996,15 @@ function prodBreakdownHTML(pr){
 }
 function renderProducts(){
   const box=$('products'); if(!box) return;
+  const q=(($('pSearch')&&$('pSearch').value)||'').trim().toLowerCase();
+  if($('pClearSearch')) $('pClearSearch').style.display=q?'block':'none';
   $('pCount').textContent=products.length;
   if(!products.length){ box.innerHTML='<div class="empty">No products yet.<br>Add one above to quick-order it.</div>'; return; }
   box.innerHTML='';
+  let shown=0;
   products.forEach((pr,i)=>{
+    if(q && !((pr.name||'').toLowerCase().includes(q))) return;   // search filter (keeps original index i)
+    shown++;
     const p=priceItem({cost:pr.cost,weight:pr.weight,markup:pr.markup,sellPhp:pr.sellPhp});
     // customers who ordered this product (matched by product name)
     const orders=items.filter(it=>it.name===pr.name);
@@ -1036,6 +1050,7 @@ function renderProducts(){
        </div>`;
     box.appendChild(card);
   });
+  if(q && shown===0){ box.innerHTML=`<div class="empty">No products match "${escapeHtml($('pSearch').value.trim())}".</div>`; }
 }
 
 /* ---------- render ---------- */
