@@ -109,6 +109,14 @@
   .breakdown .b-total{color:var(--text);font-weight:600;border-top:1px solid var(--line);margin-top:4px;padding-top:5px}
   .toggle-bd{font-size:11.5px;color:var(--accent);cursor:pointer;margin-top:8px;display:inline-block}
   .item-note{font-size:11.5px;color:#cbd5e1;margin-top:3px;font-style:italic}
+  /* downpayment box (per customer) */
+  .dep-box{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:11px;margin-top:12px}
+  .dep-label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:5px;font-weight:500}
+  .dep-input{width:100%}
+  .dep-lines{margin-top:10px;font-size:12.5px;color:var(--muted)}
+  .dep-lines>div{display:flex;justify-content:space-between;padding:2px 0}
+  .dep-balance{color:var(--text);font-weight:700;border-top:1px solid var(--line);margin-top:4px;padding-top:6px;font-size:14px}
+  .dep-balance span:last-child{color:var(--php)}
   /* customer groups */
   .cust-group{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:14px}
   .cust-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--line)}
@@ -171,8 +179,18 @@
   .btn-confirm{background:var(--accent2);color:#04121f;width:auto;padding:9px 14px;margin-top:0}
   .btn-dismiss{background:transparent;border:1px solid var(--line);color:var(--muted);width:auto;padding:9px 12px;margin-top:0}
   .w-res .php{color:var(--php);font-weight:700;font-size:13px}
+  /* Add-product form: collapsed by default on mobile so the list is visible */
+  .ap-head{cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .ap-arrow{color:var(--muted);transition:transform .2s;font-size:15px}
+  #addProductCard .ap-body{display:none}
+  #addProductCard.ap-open .ap-body{display:block}
+  #addProductCard:not(.ap-open) .ap-arrow{transform:rotate(-90deg)}
   /* iPad / tablet: two-column Live panel so comments aren't buried under products */
   @media (min-width:820px){
+    /* desktop: Add-product form is its own column, always open */
+    #addProductCard .ap-body{display:block !important}
+    #addProductCard .ap-head{cursor:default}
+    #addProductCard .ap-arrow{display:none}
     .wrap.live-wide{max-width:1000px}
     .wrap.live-wide #page-live{display:grid !important;grid-template-columns:340px 1fr;gap:0 16px;align-items:start}
     .wrap.live-wide #wControlCard{grid-column:1;grid-row:1}
@@ -394,6 +412,8 @@
     <div class="total-line" id="tPayLine"><span>Payment fee</span><span class="thb-amt" id="tPay">฿0</span></div>
     <div class="total-line"><span>Customer pays (฿)</span><span class="thb-amt" id="tThb">฿0</span></div>
     <div class="total-line grand"><span>CUSTOMER PAYS</span><span class="amt" id="tPhp">₱0</span></div>
+    <div class="total-line" id="tDepLine" style="display:none"><span>💵 Downpayments</span><span class="amt" id="tDep" style="color:var(--accent2)">₱0</span></div>
+    <div class="total-line grand" id="tBalanceLine" style="display:none"><span>BALANCE DUE</span><span class="amt" id="tBalance">₱0</span></div>
     <div class="total-line"><span>💰 Your profit</span><span class="amt" id="tProfit" style="color:var(--accent2)">₱0</span></div>
     <div class="copy-note">Each customer has their own 📋 Copy quote button above. This copies the whole day's order.</div>
     <button class="btn-primary" style="margin-top:12px" onclick="copyAll(event)">📋 Copy full order (all customers)</button>
@@ -406,7 +426,8 @@
   <!-- PRODUCTS PAGE -->
   <div id="page-products" style="display:none">
     <div class="card" id="addProductCard">
-      <h2>📦 Add a product</h2>
+      <h2 class="ap-head" onclick="toggleAddProduct()">📦 Add a product <span class="ap-arrow">▾</span></h2>
+      <div class="ap-body">
       <label>Product name</label>
       <input type="text" id="pName" placeholder="e.g. Gentlewoman Medium Tote">
       <div class="row">
@@ -443,6 +464,7 @@
       <div id="pPreview" class="hint" style="margin-top:8px;font-size:13.5px;min-height:18px"></div>
       <button class="btn-add" id="pAddBtn" onclick="addProduct()">Save product</button>
       <button class="btn-ghost" id="pCancelBtn" style="display:none;margin-top:8px" onclick="cancelProductEdit()">Cancel edit</button>
+      </div>
     </div>
 
     <div class="card" id="productsCard">
@@ -568,6 +590,7 @@ let SYNC_TOKEN = CENTRAL_ON && !!CENTRAL.syncToken;
 /* ---------- state ---------- */
 let items = [];
 let sales = [];   // archived sales history (for Reports)
+let deposits = {};   // downpayments received, keyed by customer (custKey) → ₱ amount
 let editIndex = null;
 let products = [];
 let pEditIndex = null;
@@ -789,7 +812,15 @@ function toggleCust(gi, el){
   const collapsed=el.parentNode.classList.toggle('collapsed');
   if(collapsed) openCust.delete(key); else openCust.add(key);
 }
-function clearAll(){ items=[]; cancelEdit(); render(); }
+function clearAll(){ items=[]; deposits={}; cancelEdit(); render(); }
+function updateDeposit(gi){
+  const {order}=computeGroups();
+  const key=order[gi]; if(key==null) return;
+  const el=$('dep_'+gi); if(!el) return;
+  const v=parseFloat(el.value)||0;
+  if(v>0) deposits[key]=v; else delete deposits[key];
+  saveAll(false); render();
+}
 
 /* ---------- Reports / history ---------- */
 function closeBatch(){
@@ -934,6 +965,7 @@ function pShowImage(){
 function pClearImage(){ pImg=''; pShowImage(); }
 
 /* ---------- products ---------- */
+function toggleAddProduct(){ const c=$('addProductCard'); if(c) c.classList.toggle('ap-open'); }
 function addProduct(){
   const name=$('pName').value.trim()||'Product';
   const cost=parseFloat($('pCost').value)||0;
@@ -962,6 +994,7 @@ function editProduct(i){
   if($('pSell')) $('pSell').value=(pr.sellPhp!=null?pr.sellPhp:'');
   pImg=pr.img||''; pShowImage();
   pEditIndex=i; $('pAddBtn').textContent='💾 Update product'; $('pCancelBtn').style.display='block';
+  const c=$('addProductCard'); if(c) c.classList.add('ap-open');   // open the form (mobile) when editing
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function stopProductEdit(){ pEditIndex=null; $('pAddBtn').textContent='Save product'; $('pCancelBtn').style.display='none'; }
@@ -1066,6 +1099,7 @@ function render(){
     return;
   }
   const {groups,order}=computeGroups();
+  Object.keys(deposits).forEach(k=>{ if(!(k in groups)) delete deposits[k]; });   // drop deposits for customers with no items
   const shown=order.filter(key=>{
     if(!q) return true;
     const g=groups[key];
@@ -1078,7 +1112,7 @@ function render(){
     $('totalsCard').style.display='none';
     return;
   }
-  let sCost=0,sShip=0,sPay=0,sThb=0,sPhp=0,sCostPhp=0;
+  let sCost=0,sShip=0,sPay=0,sThb=0,sPhp=0,sCostPhp=0,sDep=0;
   box.innerHTML='';
   shown.forEach(key=>{
     const g=groups[key]; const isNone=key==='__none__';
@@ -1112,19 +1146,29 @@ function render(){
          </div>
        </div>`;
     });
+    const dep=deposits[key]||0; const bal=g.php-dep; sDep+=dep;
     const collapsed = q ? false : !openCust.has(key);
     const card=document.createElement('div');
     card.className='cust-group'+(collapsed?' collapsed':'');
     card.innerHTML=
       `<div class="cust-head ord-head" onclick="toggleCust(${gi}, this)">
-         <div class="cust-name">${head}<span class="cust-count">${g.rows.length} item${g.rows.length>1?'s':''}</span></div>
+         <div class="cust-name">${head}<span class="cust-count">${g.rows.length} item${g.rows.length>1?'s':''}${dep>0?` · 💵 ${fmtP(dep)} paid`:''}</span></div>
          <div style="display:flex;align-items:center;gap:8px;flex:none">
-           <div class="cust-total">${fmtP(g.php)}<span>${fmtT(g.thb)}</span></div>
+           <div class="cust-total">${fmtP(dep>0?bal:g.php)}<span>${dep>0?'balance due':fmtT(g.thb)}</span></div>
            <span class="arrow">▾</span>
          </div>
        </div>
        <div class="ord-body">
          ${rowsHtml}
+         <div class="dep-box">
+           <label class="dep-label">💵 Downpayment received — ₱</label>
+           <input type="number" class="dep-input" id="dep_${gi}" value="${dep||''}" placeholder="0" step="1" inputmode="decimal" onchange="updateDeposit(${gi})">
+           ${dep>0?`<div class="dep-lines">
+             <div><span>Order total</span><span>${fmtP(g.php)}</span></div>
+             <div><span>Downpayment</span><span style="color:var(--accent2)">−${fmtP(dep)}</span></div>
+             <div class="dep-balance"><span>Balance due</span><span>${fmtP(bal)}</span></div>
+           </div>`:''}
+         </div>
          <button class="btn-copy-cust" onclick="copyCust(${gi},event)">📋 Copy ${isNone?'this':'their'} quote</button>
        </div>`;
     box.appendChild(card);
@@ -1136,6 +1180,10 @@ function render(){
   $('tPay').textContent=fmtT(sPay);
   $('tThb').textContent=fmtT(sThb);
   $('tPhp').textContent=fmtP(sPhp);
+  $('tDep').textContent='−'+fmtP(sDep);
+  $('tBalance').textContent=fmtP(sPhp-sDep);
+  $('tDepLine').style.display     = sDep>0?'flex':'none';
+  $('tBalanceLine').style.display = sDep>0?'flex':'none';
   const sProfit=sPhp-sCostPhp;
   $('tProfit').textContent=fmtP(sProfit);
   $('tProfit').style.color = sProfit>=0?'var(--accent2)':'var(--danger)';
@@ -1181,7 +1229,7 @@ function collectData(){
     shipKg:$('shipKg').value,payPct:$('payPct').value,
     useShip:$('useShip').checked,usePay:$('usePay').checked,
     feeMethod:$('feeMethod').value,
-    fbPage:$('fbPage').value,tiers,items,products,sales,
+    fbPage:$('fbPage').value,tiers,items,products,sales,deposits,
     wCfg, wActive, wAdded, wDismissed
   };
 }
@@ -1211,6 +1259,7 @@ function applyData(d){
   if(Array.isArray(d.items))items=d.items;
   if(Array.isArray(d.products))products=d.products;
   if(Array.isArray(d.sales))sales=d.sales;
+  if(d.deposits && typeof d.deposits==='object' && !Array.isArray(d.deposits)) deposits=d.deposits;
   if(d.wCfg && typeof d.wCfg==='object') wCfg=Object.assign(wCfg,d.wCfg);
   if(typeof d.wActive==='string') wActive=d.wActive;
   if(d.wAdded && typeof d.wAdded==='object') wAdded=d.wAdded;
@@ -1270,23 +1319,38 @@ function copyCust(gi,ev){
     if(it.notes) lines.push(`   ↳ ${it.notes}`);
   });
   lines.push('');
-  lines.push(`TOTAL: ${fmtP(g.php)}`);
+  const dep=deposits[key]||0;
+  if(dep>0){
+    lines.push(`Subtotal: ${fmtP(g.php)}`);
+    lines.push(`Downpayment: -${fmtP(dep)}`);
+    lines.push(`BALANCE DUE: ${fmtP(g.php-dep)}`);
+  } else {
+    lines.push(`TOTAL: ${fmtP(g.php)}`);
+  }
   const fb=$('fbPage').value.trim();
   if(fb){ lines.push(''); lines.push(`📘 Order from us: ${fb}`); }
   copyText(lines.join('\n'), ev&&ev.target);
 }
 function copyAll(ev){
   const {groups,order}=computeGroups();
-  const lines=['🛍️ Pasabuy — Full Order']; let gThb=0,gPhp=0;
+  const lines=['🛍️ Pasabuy — Full Order']; let gThb=0,gPhp=0,gDep=0;
   order.forEach(key=>{
     const g=groups[key];
+    const dep=deposits[key]||0;
     lines.push('');
-    lines.push((key==='__none__'?'🚶 Walk-in':'👤 '+(g.label||'Customer'))+`  — ${fmtP(g.php)}`);
+    lines.push((key==='__none__'?'🚶 Walk-in':'👤 '+(g.label||'Customer'))+`  — ${fmtP(dep>0?g.php-dep:g.php)}${dep>0?' due':''}`);
     g.rows.forEach(({it,p})=> lines.push(`   • ${it.name}${p.qty>1?` × ${p.qty}`:''} — ${fmtP(p.php)}`));
-    gThb+=g.thb; gPhp+=g.php;
+    if(dep>0) lines.push(`   💵 paid ${fmtP(dep)} · balance ${fmtP(g.php-dep)}`);
+    gThb+=g.thb; gPhp+=g.php; gDep+=dep;
   });
   lines.push('');
-  lines.push(`GRAND TOTAL: ${fmtP(gPhp)}`);
+  if(gDep>0){
+    lines.push(`GRAND TOTAL: ${fmtP(gPhp)}`);
+    lines.push(`DOWNPAYMENTS: -${fmtP(gDep)}`);
+    lines.push(`BALANCE DUE: ${fmtP(gPhp-gDep)}`);
+  } else {
+    lines.push(`GRAND TOTAL: ${fmtP(gPhp)}`);
+  }
   copyText(lines.join('\n'), ev&&ev.target);
 }
 
