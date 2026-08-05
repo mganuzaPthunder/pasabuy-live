@@ -109,6 +109,14 @@
   .breakdown .b-total{color:var(--text);font-weight:600;border-top:1px solid var(--line);margin-top:4px;padding-top:5px}
   .toggle-bd{font-size:11.5px;color:var(--accent);cursor:pointer;margin-top:8px;display:inline-block}
   .item-note{font-size:11.5px;color:#cbd5e1;margin-top:3px;font-style:italic}
+  /* pre-order / bought status */
+  .status-filter{display:flex;gap:6px;margin-bottom:12px}
+  .status-filter button{flex:1;background:var(--card2);border:1px solid var(--line);color:var(--muted);font-size:12.5px;padding:8px 6px;border-radius:8px;font-weight:600;cursor:pointer}
+  .status-filter button.active{background:var(--accent);color:#04121f;border-color:var(--accent)}
+  .status-badge{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:20px;margin-left:6px;cursor:pointer;vertical-align:middle;user-select:none}
+  .status-badge.pre{color:#fbbf24;background:rgba(251,191,36,.14);border:1px solid rgba(251,191,36,.4)}
+  .status-badge.bought{color:var(--accent2);background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.4)}
+  .item.is-pre{border-left:3px solid rgba(251,191,36,.7)}
   /* downpayment box (per customer) */
   .dep-box{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:11px;margin-top:12px}
   .dep-label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:5px;font-weight:500}
@@ -402,6 +410,11 @@
       <input id="search" placeholder="🔍 Search customer by name or FB link" oninput="render()">
       <button class="clr" id="clearSearch" onclick="clearSearch()" style="display:none">✕</button>
     </div>
+    <div class="status-filter" id="statusFilter">
+      <button data-f="all" class="active" onclick="setOrderFilter('all')">All <span id="cfAll"></span></button>
+      <button data-f="pre" onclick="setOrderFilter('pre')">🕒 Pre-order <span id="cfPre"></span></button>
+      <button data-f="bought" onclick="setOrderFilter('bought')">✅ Bought <span id="cfBought"></span></button>
+    </div>
     <div id="items"><div class="empty">No items yet.<br>Add one above to see the price.</div></div>
   </div>
 
@@ -597,6 +610,7 @@ let pEditIndex = null;
 let pImg = '';   // current product photo (data URL) being added/edited
 let page = 'orders';
 let openCust = new Set();
+let orderFilter = 'all';   // 'all' | 'pre' (pre-order) | 'bought'
 let tiers = [
   {upto:500, pct:25},
   {upto:1500, pct:20},
@@ -806,6 +820,12 @@ function delItem(i){
   toast('🗑️ Removed & saved');
 }
 function toggleBd(i){ items[i].showBd=!items[i].showBd; render(); }
+function toggleBought(i){ if(!items[i]) return; items[i].bought=!items[i].bought; saveAll(false); render(); }
+function setOrderFilter(f){
+  orderFilter=f;
+  const sf=$('statusFilter'); if(sf)[...sf.children].forEach(b=>b.classList.toggle('active', b.dataset.f===f));
+  render();
+}
 function toggleCust(gi, el){
   const {order}=computeGroups();
   const key=order[gi]; if(key==null) return;
@@ -1105,27 +1125,36 @@ function render(){
     const g=groups[key];
     return key.includes(q) || (g.label||'').toLowerCase().includes(q) || custKey(q)===key;
   });
-  const shownItems=shown.reduce((n,k)=>n+groups[k].rows.length,0);
-  $('countBadge').textContent = q ? `${shownItems} of ${items.length}` : `${items.length} item${items.length>1?'s':''}`;
+  // status filter counts
+  const preCount=items.filter(it=>it.bought!==true).length;
+  if($('cfAll'))$('cfAll').textContent=`(${items.length})`;
+  if($('cfPre'))$('cfPre').textContent=`(${preCount})`;
+  if($('cfBought'))$('cfBought').textContent=`(${items.length-preCount})`;
+  const statusMatch=it=> orderFilter==='all' || (orderFilter==='bought' ? it.bought===true : it.bought!==true);
   if(shown.length===0){
     box.innerHTML=`<div class="empty">No customer matches "${escapeHtml($('search').value.trim())}".</div>`;
     $('totalsCard').style.display='none';
+    $('countBadge').textContent='0';
     return;
   }
-  let sCost=0,sShip=0,sPay=0,sThb=0,sPhp=0,sCostPhp=0,sDep=0;
+  let sCost=0,sShip=0,sPay=0,sThb=0,sPhp=0,sCostPhp=0,sDep=0,shownItemCount=0;
   box.innerHTML='';
   shown.forEach(key=>{
     const g=groups[key]; const isNone=key==='__none__';
     const gi=order.indexOf(key);
     const head=isNone?'🚶 Walk-in / no FB link':('👤 '+custLink(g.label||'Customer'));
-    let rowsHtml='';
+    let rowsHtml=''; let grpPhp=0, grpThb=0, grpCount=0;
     g.rows.forEach(({it,i,p})=>{
+      if(!statusMatch(it)) return;   // pre-order / bought filter
+      grpCount++; shownItemCount++;
+      grpPhp+=p.php; grpThb+=p.thb;
       sCost+=p.cost; sShip+=p.ship; sPay+=p.pay; sThb+=p.thb; sPhp+=p.php; sCostPhp+=p.costPhp;
+      const isBought=it.bought===true;
       rowsHtml+=
-      `<div class="item"${editIndex===i?' style="outline:2px solid var(--accent)"':''}>
+      `<div class="item${isBought?'':' is-pre'}"${editIndex===i?' style="outline:2px solid var(--accent)"':''}>
          <div class="item-top">
            <div>
-             <div class="item-name">${escapeHtml(it.name)}${p.qty>1?` <span class="item-qty">× ${p.qty}</span>`:''}${it.fromFB?'<span class="fb-badge">🔴 FB</span>':''}</div>
+             <div class="item-name">${escapeHtml(it.name)}${p.qty>1?` <span class="item-qty">× ${p.qty}</span>`:''}<span class="status-badge ${isBought?'bought':'pre'}" onclick="toggleBought(${i})">${isBought?'✅ Bought':'🕒 Pre-order'}</span>${it.fromFB?'<span class="fb-badge">🔴 FB</span>':''}</div>
              <div class="item-sub">฿${p.unitCost.toLocaleString()}${p.qty>1?` × ${p.qty}`:''} · ${p.feeLabel}${p.ship?` · +${fmtT(p.ship)} ship`:''}</div>
              ${it.notes?`<div class="item-note">📝 ${escapeHtml(it.notes)}</div>`:''}
            </div>
@@ -1146,21 +1175,26 @@ function render(){
          </div>
        </div>`;
     });
-    const dep=deposits[key]||0; const bal=g.php-dep; sDep+=dep;
-    const collapsed = q ? false : !openCust.has(key);
+    if(grpCount===0) return;   // nothing in this customer's order matches the filter
+    const dep=deposits[key]||0; const bal=g.php-dep;
+    const showDep = (orderFilter==='all');       // deposits/balance only in the full view
+    if(showDep) sDep+=dep;
+    const headTotal = (showDep && dep>0) ? bal : grpPhp;
+    const headSub   = (showDep && dep>0) ? 'balance due' : fmtT(grpThb);
+    const collapsed = (q||orderFilter!=='all') ? false : !openCust.has(key);
     const card=document.createElement('div');
     card.className='cust-group'+(collapsed?' collapsed':'');
     card.innerHTML=
       `<div class="cust-head ord-head" onclick="toggleCust(${gi}, this)">
-         <div class="cust-name">${head}<span class="cust-count">${g.rows.length} item${g.rows.length>1?'s':''}${dep>0?` · 💵 ${fmtP(dep)} paid`:''}</span></div>
+         <div class="cust-name">${head}<span class="cust-count">${grpCount} item${grpCount>1?'s':''}${showDep&&dep>0?` · 💵 ${fmtP(dep)} paid`:''}</span></div>
          <div style="display:flex;align-items:center;gap:8px;flex:none">
-           <div class="cust-total">${fmtP(dep>0?bal:g.php)}<span>${dep>0?'balance due':fmtT(g.thb)}</span></div>
+           <div class="cust-total">${fmtP(headTotal)}<span>${headSub}</span></div>
            <span class="arrow">▾</span>
          </div>
        </div>
        <div class="ord-body">
          ${rowsHtml}
-         <div class="dep-box">
+         ${showDep?`<div class="dep-box">
            <label class="dep-label">💵 Downpayment received — ₱</label>
            <input type="number" class="dep-input" id="dep_${gi}" value="${dep||''}" placeholder="0" step="1" inputmode="decimal" onchange="updateDeposit(${gi})">
            ${dep>0?`<div class="dep-lines">
@@ -1168,11 +1202,18 @@ function render(){
              <div><span>Downpayment</span><span style="color:var(--accent2)">−${fmtP(dep)}</span></div>
              <div class="dep-balance"><span>Balance due</span><span>${fmtP(bal)}</span></div>
            </div>`:''}
-         </div>
+         </div>`:''}
          <button class="btn-copy-cust" onclick="copyCust(${gi},event)">📋 Copy ${isNone?'this':'their'} quote</button>
        </div>`;
     box.appendChild(card);
   });
+  const flabel = orderFilter==='pre'?' pre-order':(orderFilter==='bought'?' bought':'');
+  $('countBadge').textContent = (q||orderFilter!=='all') ? `${shownItemCount}${flabel}${q?' of '+items.length:''}` : `${items.length} item${items.length>1?'s':''}`;
+  if(shownItemCount===0){
+    box.innerHTML=`<div class="empty">No ${orderFilter==='bought'?'✅ bought':'🕒 pre-order'} items${q?' match this search':''}.</div>`;
+    $('totalsCard').style.display='none';
+    return;
+  }
   // totals (reflect what's shown)
   $('totalsCard').style.display='block';
   $('tCost').textContent=fmtT(sCost)+' = '+fmtP(sCostPhp);
